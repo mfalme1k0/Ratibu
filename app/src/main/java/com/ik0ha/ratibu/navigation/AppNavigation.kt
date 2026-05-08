@@ -1,0 +1,73 @@
+package com.ik0ha.ratibu.navigation
+
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.database.FirebaseDatabase
+import com.ik0ha.ratibu.screens.*
+
+@Composable
+fun AppNavigation() {
+    val navController = rememberNavController()
+    val auth = FirebaseAuth.getInstance()
+    val db = FirebaseDatabase.getInstance().reference
+
+    LaunchedEffect(Unit) {
+        val currentUser = auth.currentUser
+        if (currentUser != null) {
+            db.child("users").child(currentUser.uid).child("role").get()
+                .addOnSuccessListener { snapshot ->
+                    val role = snapshot.getValue(String::class.java)
+                    val destination = if (role == "PROVIDER") "dashboard" else "home"
+                    navController.navigate(destination) {
+                        popUpTo("login") { inclusive = true }
+                    }
+                }
+        }
+    }
+
+    NavHost(navController = navController, startDestination = "login") {
+        composable("login") {
+            LoginScreen(
+                navController = navController,
+                onRegisterClick = { navController.navigate("register") }
+            )
+        }
+        composable("register") {
+            RegistrationScreen(
+                navController = navController,
+                onBackToLogin = { navController.popBackStack() }
+            )
+        }
+        composable("home") {
+            HomeScreen(navController = navController)
+        }
+        composable("dashboard") {
+            DashboardScreen(navController = navController)
+        }
+        composable("analytics") {
+            AnalyticsScreen(navController = navController)
+        }
+        composable("provider_profile") {
+            ProviderProfileScreen(navController = navController)
+        }
+        composable("chat_list") {
+            ChatListScreen(navController = navController)
+        }
+        composable("chat/{otherUserId}") { backStackEntry ->
+            val otherUserId = backStackEntry.arguments?.getString("otherUserId") ?: ""
+            ChatScreen(navController = navController, otherUserId = otherUserId)
+        }
+        composable("provider_detail/{providerId}") { backStackEntry ->
+            val providerId = backStackEntry.arguments?.getString("providerId") ?: ""
+            ProviderDetailScreen(navController = navController, providerId = providerId)
+        }
+        composable("booking/{providerId}") { backStackEntry ->
+            val providerId = backStackEntry.arguments?.getString("providerId") ?: ""
+            BookingScreen(navController = navController, providerId = providerId)
+        }
+    }
+}
