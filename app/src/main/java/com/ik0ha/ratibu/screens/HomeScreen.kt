@@ -33,13 +33,14 @@ import com.ik0ha.ratibu.viewmodel.HomeViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(navController: NavHostController, homeViewModel: HomeViewModel = viewModel()) {
+fun HomeScreen(
+    navController: NavHostController,
+    homeViewModel: HomeViewModel = viewModel(),
+    authViewModel: AuthViewModel = viewModel()
+) {
     var searchQuery by remember { mutableStateOf("") }
     val allProviders by homeViewModel.providers.collectAsState()
     val userRole by homeViewModel.userRole.collectAsState()
-    
-    val context = LocalContext.current
-    val authViewModel = remember { AuthViewModel(navController, context) }
 
     val filteredProviders = if (searchQuery.isEmpty()) {
         allProviders
@@ -68,7 +69,11 @@ fun HomeScreen(navController: NavHostController, homeViewModel: HomeViewModel = 
                             Icon(Icons.Default.Dashboard, contentDescription = "Dashboard", tint = MaterialTheme.colorScheme.primary)
                         }
                     }
-                    IconButton(onClick = { authViewModel.logout() }) {
+                    IconButton(onClick = { 
+                        authViewModel.logout {
+                            navController.navigate("login") { popUpTo(0) }
+                        }
+                    }) {
                         Icon(Icons.Default.ExitToApp, contentDescription = "Logout", tint = MaterialTheme.colorScheme.primary)
                     }
                 },

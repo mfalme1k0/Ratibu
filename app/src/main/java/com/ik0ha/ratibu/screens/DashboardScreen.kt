@@ -30,10 +30,10 @@ import java.util.*
 @Composable
 fun DashboardScreen(
     navController: NavHostController,
-    dashboardViewModel: DashboardViewModel = viewModel()
+    dashboardViewModel: DashboardViewModel = viewModel(),
+    authViewModel: AuthViewModel = viewModel()
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
-    val authViewModel = remember { AuthViewModel(navController, context) }
     val bookings by dashboardViewModel.bookings.collectAsState()
     val analytics by dashboardViewModel.analytics.collectAsState()
     val profile by dashboardViewModel.providerProfile.collectAsState()
@@ -66,7 +66,11 @@ fun DashboardScreen(
                     IconButton(onClick = { navController.navigate("provider_profile") }) {
                         Icon(Icons.Default.Person, contentDescription = "Edit Profile")
                     }
-                    IconButton(onClick = { authViewModel.logout() }) {
+                    IconButton(onClick = { 
+                        authViewModel.logout {
+                            navController.navigate("login") { popUpTo(0) }
+                        }
+                    }) {
                         Icon(Icons.Default.Logout, contentDescription = "Logout")
                     }
                 },

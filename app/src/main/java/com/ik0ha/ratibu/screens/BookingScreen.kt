@@ -23,16 +23,18 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.ik0ha.ratibu.viewmodel.BookingViewModel
 import java.text.SimpleDateFormat
 import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun BookingScreen(navController: NavHostController, providerId: String) {
-    val context = LocalContext.current
-    val bookingViewModel = remember { BookingViewModel(context) }
-    
+fun BookingScreen(
+    navController: NavHostController,
+    providerId: String,
+    bookingViewModel: BookingViewModel = viewModel()
+) {
     val bookedRanges by bookingViewModel.bookedRanges.collectAsState()
     
     val days = remember {

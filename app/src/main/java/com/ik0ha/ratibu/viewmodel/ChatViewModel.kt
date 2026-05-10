@@ -1,17 +1,17 @@
 package com.ik0ha.ratibu.viewmodel
 
 import androidx.lifecycle.ViewModel
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.database.*
 import com.ik0ha.ratibu.data.ChatChannel
 import com.ik0ha.ratibu.data.ChatMessage
+import com.ik0ha.ratibu.data.repository.ChatRepository
+import com.ik0ha.ratibu.data.repository.UserRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
 class ChatViewModel : ViewModel() {
-    private val auth = FirebaseAuth.getInstance()
-    private val db = FirebaseDatabase.getInstance().reference
-    private val currentUserId = auth.currentUser?.uid ?: ""
+    private val userRepository = UserRepository()
+    private val chatRepository = ChatRepository()
+    private val currentUserId = userRepository.getCurrentUserId() ?: ""
 
     private val _messages = MutableStateFlow<List<ChatMessage>>(emptyList())
     val messages: StateFlow<List<ChatMessage>> = _messages
@@ -21,27 +21,18 @@ class ChatViewModel : ViewModel() {
 
     fun fetchMessages(otherUserId: String) {
         val channelId = getChannelId(currentUserId, otherUserId)
-        db.child("chats").child(channelId).addValueEventListener(object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) {
-                val list = mutableListOf<ChatMessage>()
-                for (child in snapshot.children) {
-                    child.getValue(ChatMessage::class.java)?.let { list.add(it) }
-                }
-                _messages.value = list.sortedBy { it.timestamp }
-            }
-            override fun onCancelled(error: DatabaseError) {}
-        })
+        chatRepository.getMessages(channelId) { list ->
+            _messages.value = list.sortedBy { it.timestamp }
+        }
     }
 
     fun sendMessage(otherUserId: String, text: String, otherUserName: String, currentUserName: String) {
         if (text.isEmpty()) return
         val channelId = getChannelId(currentUserId, otherUserId)
-        val msgId = db.child("chats").child(channelId).push().key ?: return
+        val msgId = chatRepository.generateMessageKey(channelId) ?: return
         val timestamp = System.currentTimeMillis()
         
         val message = ChatMessage(msgId, currentUserId, text, timestamp)
-        
-        db.child("chats").child(channelId).child(msgId).setValue(message)
         
         // Update channel info for both users
         val channel = ChatChannel(
@@ -54,21 +45,13 @@ class ChatViewModel : ViewModel() {
             lastTimestamp = timestamp
         )
         
-        db.child("channels").child(currentUserId).child(channelId).setValue(channel)
-        db.child("channels").child(otherUserId).child(channelId).setValue(channel)
+        chatRepository.sendMessage(channelId, message, channel)
     }
 
     fun fetchChannels() {
-        db.child("channels").child(currentUserId).addValueEventListener(object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) {
-                val list = mutableListOf<ChatChannel>()
-                for (child in snapshot.children) {
-                    child.getValue(ChatChannel::class.java)?.let { list.add(it) }
-                }
-                _channels.value = list.sortedByDescending { it.lastTimestamp }
-            }
-            override fun onCancelled(error: DatabaseError) {}
-        })
+        chatRepository.getChannels(currentUserId) { list ->
+            _channels.value = list.sortedByDescending { it.lastTimestamp }
+        }
     }
 
     private fun getChannelId(id1: String, id2: String): String {

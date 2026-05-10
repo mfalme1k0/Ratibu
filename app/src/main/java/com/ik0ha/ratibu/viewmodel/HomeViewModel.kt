@@ -5,13 +5,14 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.*
 import com.ik0ha.ratibu.data.Review
 import com.ik0ha.ratibu.data.ServiceProvider
+import com.ik0ha.ratibu.data.repository.UserRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import java.util.Locale
 
 class HomeViewModel : ViewModel() {
     private val db = FirebaseDatabase.getInstance().reference
-    private val auth = FirebaseAuth.getInstance()
+    private val userRepository = UserRepository()
     
     private val _providers = MutableStateFlow<List<ServiceProvider>>(emptyList())
     val providers: StateFlow<List<ServiceProvider>> = _providers
@@ -79,14 +80,14 @@ class HomeViewModel : ViewModel() {
     }
 
     private fun fetchUserRole() {
-        val uid = auth.currentUser?.uid ?: return
-        db.child("users").child(uid).child("role").get().addOnSuccessListener {
-            _userRole.value = it.getValue(String::class.java)
+        val uid = userRepository.getCurrentUserId() ?: return
+        userRepository.getUserRole(uid) { role ->
+            _userRole.value = role
         }
     }
 
     fun submitReview(providerId: String, rating: Double, comment: String) {
-        val currentUserId = auth.currentUser?.uid ?: return
+        val currentUserId = userRepository.getCurrentUserId() ?: return
         db.child("users").child(currentUserId).child("name").get().addOnSuccessListener { snapshot ->
             val reviewerName = snapshot.getValue(String::class.java) ?: "Anonymous"
             val review = Review(

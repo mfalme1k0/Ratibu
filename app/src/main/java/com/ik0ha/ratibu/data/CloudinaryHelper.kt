@@ -5,13 +5,15 @@ import android.net.Uri
 import com.cloudinary.android.MediaManager
 import com.cloudinary.android.callback.ErrorInfo
 import com.cloudinary.android.callback.UploadCallback
+import com.ik0ha.ratibu.BuildConfig
+
 object CloudinaryHelper {
     private var isInitialized = false
 
     fun init(context: Context) {
         if (!isInitialized) {
             val config = mapOf(
-                "cloud_name" to "ddcjj2pox"
+                "cloud_name" to BuildConfig.CLOUDINARY_CLOUD_NAME
             )
             MediaManager.init(context, config)
             isInitialized = true

@@ -39,10 +39,10 @@ import com.ik0ha.ratibu.viewmodel.DashboardViewModel
 @Composable
 fun ProviderProfileScreen(
     navController: NavHostController,
-    dashboardViewModel: DashboardViewModel = viewModel()
+    dashboardViewModel: DashboardViewModel = viewModel(),
+    authViewModel: AuthViewModel = viewModel()
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
-    val authViewModel = remember { AuthViewModel(navController, context) }
     val profile by dashboardViewModel.providerProfile.collectAsState()
     val uploading by dashboardViewModel.uploading.collectAsState()
 
@@ -354,7 +354,11 @@ fun ProviderProfileScreen(
             item {
                 Spacer(modifier = Modifier.height(32.dp))
                 Button(
-                    onClick = { authViewModel.logout() },
+                    onClick = { 
+                        authViewModel.logout {
+                            navController.navigate("login") { popUpTo(0) }
+                        }
+                    },
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) {

@@ -2,17 +2,23 @@ package com.ik0ha.ratibu.viewmodel
 
 import android.net.Uri
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.ValueEventListener
 import com.ik0ha.ratibu.data.CloudinaryHelper
+import com.ik0ha.ratibu.data.DetailedAnalytics
 import com.ik0ha.ratibu.data.ServiceProvider
 import com.ik0ha.ratibu.data.Session
 import com.ik0ha.ratibu.data.WorkSample
+import com.ik0ha.ratibu.data.repository.BookingRepository
+import com.ik0ha.ratibu.data.repository.UserRepository
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -20,6 +26,9 @@ class DashboardViewModel : ViewModel() {
     private val auth = FirebaseAuth.getInstance()
     private val db = FirebaseDatabase.getInstance().reference
     private val providerId = auth.currentUser?.uid ?: ""
+    
+    private val userRepository = UserRepository()
+    private val bookingRepository = BookingRepository()
 
     private val _providerProfile = MutableStateFlow<ServiceProvider?>(null)
     val providerProfile: StateFlow<ServiceProvider?> = _providerProfile
@@ -98,19 +107,13 @@ class DashboardViewModel : ViewModel() {
     }
 
     private fun fetchBookings() {
-        db.child("bookings").orderByChild("providerId").equalTo(providerId)
-            .addValueEventListener(object : ValueEventListener {
-                override fun onDataChange(snapshot: DataSnapshot) {
-                    val list = mutableListOf<Session>()
-                    for (child in snapshot.children) {
-                        child.getValue(Session::class.java)?.let { list.add(it) }
-                    }
-                    val sorted = list.sortedBy { it.startTime }
-                    _bookings.value = sorted
-                    computeAnalytics(sorted)
-                }
-                override fun onCancelled(error: DatabaseError) {}
-            })
+        bookingRepository.getBookingsByProvider(providerId) { list ->
+            val sorted = list.sortedBy { it.startTime }
+            _bookings.value = sorted
+            viewModelScope.launch(Dispatchers.Default) {
+                computeAnalytics(sorted)
+            }
+        }
     }
 
     private fun computeAnalytics(bookings: List<Session>) {
@@ -154,20 +157,12 @@ class DashboardViewModel : ViewModel() {
         )
     }
 
-data class DetailedAnalytics(
-    val dayDistribution: Map<String, Int>,
-    val hourDistribution: Map<String, Int>,
-    val uniqueClients: Int,
-    val repeatClients: Int,
-    val statusBreakdown: Map<String, Int>
-)
-
     fun updateBookingStatus(bookingId: String, newStatus: String) {
-        db.child("bookings").child(bookingId).child("status").setValue(newStatus)
+        bookingRepository.updateBookingStatus(bookingId, newStatus)
     }
 
     fun addWalkIn(clientName: String, startTime: Long, notes: String) {
-        val sessionId = db.child("bookings").push().key ?: return
+        val sessionId = bookingRepository.generateBookingKey() ?: return
         val session = Session(
             id = sessionId,
             clientId = "walk-in",
@@ -178,11 +173,11 @@ data class DetailedAnalytics(
             type = "WALK_IN",
             notes = notes
         )
-        db.child("bookings").child(sessionId).setValue(session)
+        bookingRepository.saveBooking(session) {}
     }
 
     fun blockTime(startTime: Long, durationMinutes: Int, reason: String) {
-        val sessionId = db.child("bookings").push().key ?: return
+        val sessionId = bookingRepository.generateBookingKey() ?: return
         val session = Session(
             id = sessionId,
             providerId = providerId,
@@ -192,7 +187,7 @@ data class DetailedAnalytics(
             type = "BLOCKED",
             notes = reason
         )
-        db.child("bookings").child(sessionId).setValue(session)
+        bookingRepository.saveBooking(session) {}
     }
 
     fun updateProfile(
@@ -218,9 +213,7 @@ data class DetailedAnalytics(
                 "latitude" to latitude,
                 "longitude" to longitude
             )
-            db.child("providers").child(providerId).updateChildren(updates)
-                .addOnSuccessListener { onSuccess() }
-                .addOnFailureListener { onFailure(it.message ?: "Update failed") }
+            userRepository.updateProviderProfile(providerId, updates, onSuccess, onFailure)
         }
     }
 

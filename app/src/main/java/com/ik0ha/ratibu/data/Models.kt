@@ -66,3 +66,11 @@ data class ChatChannel(
     val lastMessage: String = "",
     val lastTimestamp: Long = 0L
 )
+
+data class DetailedAnalytics(
+    val dayDistribution: Map<String, Int> = emptyMap(),
+    val hourDistribution: Map<String, Int> = emptyMap(),
+    val uniqueClients: Int = 0,
+    val repeatClients: Int = 0,
+    val statusBreakdown: Map<String, Int> = emptyMap()
+)

@@ -5,27 +5,23 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.database.FirebaseDatabase
+import com.ik0ha.ratibu.data.repository.UserRepository
 import com.ik0ha.ratibu.screens.*
 
 @Composable
 fun AppNavigation() {
     val navController = rememberNavController()
-    val auth = FirebaseAuth.getInstance()
-    val db = FirebaseDatabase.getInstance().reference
+    val userRepository = UserRepository()
 
     LaunchedEffect(Unit) {
-        val currentUser = auth.currentUser
-        if (currentUser != null) {
-            db.child("users").child(currentUser.uid).child("role").get()
-                .addOnSuccessListener { snapshot ->
-                    val role = snapshot.getValue(String::class.java)
-                    val destination = if (role == "PROVIDER") "dashboard" else "home"
-                    navController.navigate(destination) {
-                        popUpTo("login") { inclusive = true }
-                    }
+        val currentUid = userRepository.getCurrentUserId()
+        if (currentUid != null) {
+            userRepository.getUserRole(currentUid) { role ->
+                val destination = if (role == "PROVIDER") "dashboard" else "home"
+                navController.navigate(destination) {
+                    popUpTo("login") { inclusive = true }
                 }
+            }
         }
     }
 

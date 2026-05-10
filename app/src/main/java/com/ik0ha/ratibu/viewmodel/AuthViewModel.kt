@@ -1,23 +1,30 @@
 package com.ik0ha.ratibu.viewmodel
 
-import android.content.Context
-import android.widget.Toast
 import androidx.lifecycle.ViewModel
-import androidx.navigation.NavHostController
+import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.database.FirebaseDatabase
 import com.ik0ha.ratibu.data.User
+import com.ik0ha.ratibu.data.repository.UserRepository
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.launch
 
-class AuthViewModel(
-    private val navController: NavHostController,
-    private val context: Context
-) : ViewModel() {
+sealed class AuthEvent {
+    object LoginSuccess : AuthEvent()
+    object ProviderLoginSuccess : AuthEvent()
+    data class Error(val message: String) : AuthEvent()
+}
+
+class AuthViewModel : ViewModel() {
     private val auth = FirebaseAuth.getInstance()
-    private val db = FirebaseDatabase.getInstance().reference
+    private val repository = UserRepository()
+
+    private val _events = MutableSharedFlow<AuthEvent>()
+    val events: SharedFlow<AuthEvent> = _events
 
     fun login(email: String, pass: String) {
         if (email.isEmpty() || pass.isEmpty()) {
-            Toast.makeText(context, "Please fill all fields", Toast.LENGTH_SHORT).show()
+            viewModelScope.launch { _events.emit(AuthEvent.Error("Please fill all fields")) }
             return
         }
 
@@ -25,31 +32,24 @@ class AuthViewModel(
             .addOnCompleteListener { task ->
                 if (task.isSuccessful) {
                     val uid = auth.currentUser?.uid ?: ""
-                    db.child("users").child(uid).child("role").get().addOnSuccessListener { snapshot ->
-                        val role = snapshot.getValue(String::class.java)
-                        if (role == "PROVIDER") {
-                            navController.navigate("dashboard") {
-                                popUpTo("login") { inclusive = true }
+                    repository.getUserRole(uid) { role ->
+                        viewModelScope.launch {
+                            if (role == "PROVIDER") {
+                                _events.emit(AuthEvent.ProviderLoginSuccess)
+                            } else {
+                                _events.emit(AuthEvent.LoginSuccess)
                             }
-                        } else {
-                            navController.navigate("home") {
-                                popUpTo("login") { inclusive = true }
-                            }
-                        }
-                    }.addOnFailureListener {
-                        navController.navigate("home") {
-                            popUpTo("login") { inclusive = true }
                         }
                     }
                 } else {
-                    Toast.makeText(context, "Login failed: ${task.exception?.message}", Toast.LENGTH_SHORT).show()
+                    viewModelScope.launch { _events.emit(AuthEvent.Error("Login failed: ${task.exception?.message}")) }
                 }
             }
     }
 
     fun register(email: String, pass: String, name: String, role: String) {
         if (email.isEmpty() || pass.isEmpty() || name.isEmpty()) {
-            Toast.makeText(context, "Please fill all fields", Toast.LENGTH_SHORT).show()
+            viewModelScope.launch { _events.emit(AuthEvent.Error("Please fill all fields")) }
             return
         }
 
@@ -59,40 +59,33 @@ class AuthViewModel(
                     val uid = auth.currentUser?.uid ?: ""
                     val user = User(uid, name, email, role)
                     
-                    db.child("users").child(uid).setValue(user)
-                        .addOnCompleteListener { dbTask ->
-                            if (dbTask.isSuccessful) {
-                                if (role == "PROVIDER") {
-                                    // Also add to providers list for searching
-                                    val providerData = mapOf(
-                                        "uid" to uid,
-                                        "name" to name,
-                                        "category" to "General", // Default
-                                        "rating" to 5.0
-                                    )
-                                    db.child("providers").child(uid).setValue(providerData)
-                                    navController.navigate("dashboard") {
-                                        popUpTo("login") { inclusive = true }
-                                    }
-                                } else {
-                                    navController.navigate("home") {
-                                        popUpTo("login") { inclusive = true }
+                    repository.saveUser(user) { success ->
+                        if (success) {
+                            if (role == "PROVIDER") {
+                                repository.saveProviderData(uid, name) { providerSuccess ->
+                                    viewModelScope.launch {
+                                        if (providerSuccess) {
+                                            _events.emit(AuthEvent.ProviderLoginSuccess)
+                                        } else {
+                                            _events.emit(AuthEvent.Error("Failed to save provider data"))
+                                        }
                                     }
                                 }
                             } else {
-                                Toast.makeText(context, "Failed to save user data", Toast.LENGTH_SHORT).show()
+                                viewModelScope.launch { _events.emit(AuthEvent.LoginSuccess) }
                             }
+                        } else {
+                            viewModelScope.launch { _events.emit(AuthEvent.Error("Failed to save user data")) }
                         }
+                    }
                 } else {
-                    Toast.makeText(context, "Registration failed: ${task.exception?.message}", Toast.LENGTH_SHORT).show()
+                    viewModelScope.launch { _events.emit(AuthEvent.Error("Registration failed: ${task.exception?.message}")) }
                 }
             }
     }
 
-    fun logout() {
+    fun logout(onComplete: () -> Unit) {
         auth.signOut()
-        navController.navigate("login") {
-            popUpTo(0)
-        }
+        onComplete()
     }
 }
