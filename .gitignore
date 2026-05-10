@@ -15,3 +15,7 @@ google-services.json
 .cxx
 local.properties
 google-services.json
+.idea/
+/app/build
+*.apk
+*.aab
