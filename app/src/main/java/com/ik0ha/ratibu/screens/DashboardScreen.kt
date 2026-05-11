@@ -1,5 +1,7 @@
 package com.ik0ha.ratibu.screens
 
+import android.app.DatePickerDialog
+import android.app.TimePickerDialog
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -15,6 +17,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -34,7 +37,8 @@ fun DashboardScreen(
     authViewModel: AuthViewModel = viewModel()
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
-    val bookings by dashboardViewModel.bookings.collectAsState()
+    val upcomingBookings by dashboardViewModel.upcomingBookings.collectAsState()
+    val todayBookings by dashboardViewModel.todayBookings.collectAsState()
     val analytics by dashboardViewModel.analytics.collectAsState()
     val profile by dashboardViewModel.providerProfile.collectAsState()
     
@@ -43,12 +47,19 @@ fun DashboardScreen(
     var selectedAnalytic by remember { mutableStateOf<Pair<String, String>?>(null) }
 
     if (selectedAnalytic != null) {
+        val (label, value) = selectedAnalytic!!
+        val description = when(label) {
+            "Today's Schedule" -> "You have $value appointments scheduled for today. High-demand days are a great opportunity to showcase your best work!"
+            "Rating" -> "Your current average rating is $value. Maintaining a high rating helps you appear higher in client searches."
+            "Busiest Day" -> "Statistics show $value is your most booked day. You might want to ensure you're fully prepared for the extra volume then."
+            "Peak Hour" -> "Your most popular booking time is $value. This is when most clients are looking for your services."
+            "Completion Rate" -> "Your completion rate is $value. High completion rates demonstrate reliability and encourage repeat bookings."
+            else -> "Your current $label performance is $value. This data is calculated from your activity over the last 30 days."
+        }
         AlertDialog(
             onDismissRequest = { selectedAnalytic = null },
-            title = { Text(selectedAnalytic?.first ?: "") },
-            text = { 
-                Text("Detailed breakdown: ${selectedAnalytic?.second}. This data is based on your activity over the last 30 days.") 
-            },
+            title = { Text(label) },
+            text = { Text(description) },
             confirmButton = {
                 TextButton(onClick = { selectedAnalytic = null }) { Text("Close") }
             }
@@ -60,6 +71,9 @@ fun DashboardScreen(
             TopAppBar(
                 title = { Text("Provider Dashboard") },
                 actions = {
+                    IconButton(onClick = { navController.navigate("today") }) {
+                        Icon(Icons.Default.Today, contentDescription = "Today's Schedule")
+                    }
                     IconButton(onClick = { navController.navigate("chat_list") }) {
                         Icon(Icons.Default.Chat, contentDescription = "Messages")
                     }
@@ -154,10 +168,10 @@ fun DashboardScreen(
                         horizontalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
                         StatCard(
-                            label = "Total Bookings",
-                            value = bookings.size.toString(),
+                            label = "Today's Schedule",
+                            value = todayBookings.size.toString(),
                             modifier = Modifier.weight(1f),
-                            onClick = { selectedAnalytic = "Total Bookings" to "${bookings.size} total sessions" }
+                            onClick = { navController.navigate("today") }
                         )
                         StatCard(
                             label = "Rating",
@@ -168,17 +182,23 @@ fun DashboardScreen(
                     }
                     
                     if (analytics.isNotEmpty()) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(16.dp)
-                        ) {
-                            analytics.forEach { (label, value) ->
-                                StatCard(
-                                    label = label,
-                                    value = value,
-                                    modifier = Modifier.weight(1f),
-                                    onClick = { selectedAnalytic = label to value }
-                                )
+                        val items = analytics.toList()
+                        items.chunked(2).forEach { rowItems ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                            ) {
+                                rowItems.forEach { (label, value) ->
+                                    StatCard(
+                                        label = label,
+                                        value = value,
+                                        modifier = Modifier.weight(1f),
+                                        onClick = { selectedAnalytic = label to value }
+                                    )
+                                }
+                                if (rowItems.size == 1) {
+                                    Spacer(modifier = Modifier.weight(1f))
+                                }
                             }
                         }
                     }
@@ -194,17 +214,17 @@ fun DashboardScreen(
                 )
             }
 
-            if (bookings.isEmpty()) {
+            if (upcomingBookings.isEmpty()) {
                 item {
                     Box(
                         modifier = Modifier.fillMaxWidth().height(200.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("No bookings yet", color = MaterialTheme.colorScheme.secondary)
+                        Text("No upcoming sessions", color = MaterialTheme.colorScheme.secondary)
                     }
                 }
             } else {
-                items(bookings) { booking ->
+                items(upcomingBookings) { booking ->
                     BookingItem(
                         booking = booking,
                         onStatusUpdate = { newStatus ->
@@ -231,16 +251,22 @@ fun DashboardScreen(
 @Composable
 fun StatCard(label: String, value: String, modifier: Modifier = Modifier, onClick: () -> Unit = {}) {
     Card(
-        modifier = modifier.clickable { onClick() },
+        modifier = modifier
+            .height(100.dp)
+            .clickable { onClick() },
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
         ) {
-            Text(label, fontSize = 12.sp, color = MaterialTheme.colorScheme.secondary)
-            Text(value, fontSize = 24.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+            Text(label, fontSize = 11.sp, color = MaterialTheme.colorScheme.secondary, maxLines = 1)
+            Text(value, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
         }
     }
 }
@@ -331,6 +357,26 @@ fun BookingItem(booking: Session, onStatusUpdate: (String) -> Unit) {
 fun WalkInDialog(onDismiss: () -> Unit, onConfirm: (String, Long, String) -> Unit) {
     var name by remember { mutableStateOf("") }
     var notes by remember { mutableStateOf("") }
+    val context = LocalContext.current
+    val calendar = remember { Calendar.getInstance() }
+    
+    var selectedDateTime by remember { mutableStateOf(calendar.timeInMillis) }
+    val dateFormat = SimpleDateFormat("MMM dd, hh:mm a", Locale.getDefault())
+
+    val datePickerDialog = DatePickerDialog(
+        context,
+        { _, year, month, dayOfMonth ->
+            calendar.set(year, month, dayOfMonth)
+            TimePickerDialog(context, { _, hour, minute ->
+                calendar.set(Calendar.HOUR_OF_DAY, hour)
+                calendar.set(Calendar.MINUTE, minute)
+                selectedDateTime = calendar.timeInMillis
+            }, calendar.get(Calendar.HOUR_OF_DAY), calendar.get(Calendar.MINUTE), false).show()
+        },
+        calendar.get(Calendar.YEAR),
+        calendar.get(Calendar.MONTH),
+        calendar.get(Calendar.DAY_OF_MONTH)
+    )
     
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -339,11 +385,18 @@ fun WalkInDialog(onDismiss: () -> Unit, onConfirm: (String, Long, String) -> Uni
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Client Name") })
                 OutlinedTextField(value = notes, onValueChange = { notes = it }, label = { Text("Service/Notes") })
-                Text("Time: Now", fontSize = 12.sp, color = MaterialTheme.colorScheme.secondary)
+                
+                Button(
+                    onClick = { datePickerDialog.show() },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer)
+                ) {
+                    Text("Time: ${dateFormat.format(Date(selectedDateTime))}")
+                }
             }
         },
         confirmButton = {
-            Button(onClick = { onConfirm(name, System.currentTimeMillis(), notes) }) {
+            Button(onClick = { onConfirm(name, selectedDateTime, notes) }) {
                 Text("Add")
             }
         },
@@ -357,6 +410,26 @@ fun WalkInDialog(onDismiss: () -> Unit, onConfirm: (String, Long, String) -> Uni
 fun BlockTimeDialog(onDismiss: () -> Unit, onConfirm: (Long, Int, String) -> Unit) {
     var reason by remember { mutableStateOf("") }
     var duration by remember { mutableStateOf("30") }
+    val context = LocalContext.current
+    val calendar = remember { Calendar.getInstance() }
+    
+    var selectedDateTime by remember { mutableStateOf(calendar.timeInMillis) }
+    val dateFormat = SimpleDateFormat("MMM dd, hh:mm a", Locale.getDefault())
+
+    val datePickerDialog = DatePickerDialog(
+        context,
+        { _, year, month, dayOfMonth ->
+            calendar.set(year, month, dayOfMonth)
+            TimePickerDialog(context, { _, hour, minute ->
+                calendar.set(Calendar.HOUR_OF_DAY, hour)
+                calendar.set(Calendar.MINUTE, minute)
+                selectedDateTime = calendar.timeInMillis
+            }, calendar.get(Calendar.HOUR_OF_DAY), calendar.get(Calendar.MINUTE), false).show()
+        },
+        calendar.get(Calendar.YEAR),
+        calendar.get(Calendar.MONTH),
+        calendar.get(Calendar.DAY_OF_MONTH)
+    )
     
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -365,10 +438,18 @@ fun BlockTimeDialog(onDismiss: () -> Unit, onConfirm: (Long, Int, String) -> Uni
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(value = reason, onValueChange = { reason = it }, label = { Text("Reason (e.g. Lunch)") })
                 OutlinedTextField(value = duration, onValueChange = { duration = it }, label = { Text("Duration (minutes)") })
+                
+                Button(
+                    onClick = { datePickerDialog.show() },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer)
+                ) {
+                    Text("Starts at: ${dateFormat.format(Date(selectedDateTime))}")
+                }
             }
         },
         confirmButton = {
-            Button(onClick = { onConfirm(System.currentTimeMillis(), duration.toIntOrNull() ?: 30, reason) }) {
+            Button(onClick = { onConfirm(selectedDateTime, duration.toIntOrNull() ?: 30, reason) }) {
                 Text("Block")
             }
         },

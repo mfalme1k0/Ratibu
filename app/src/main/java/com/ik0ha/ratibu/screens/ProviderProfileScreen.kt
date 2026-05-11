@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -50,10 +51,12 @@ fun ProviderProfileScreen(
     var category by remember { mutableStateOf("") }
     var phoneNumber by remember { mutableStateOf("") }
     var location by remember { mutableStateOf("") }
-    var latitude by remember { mutableStateOf(0.0) }
-    var longitude by remember { mutableStateOf(0.0) }
+    var latitude by remember { mutableDoubleStateOf(0.0) }
+    var longitude by remember { mutableDoubleStateOf(0.0) }
     var slotDuration by remember { mutableStateOf("30") }
     var bufferTime by remember { mutableStateOf("10") }
+    var workStart by remember { mutableStateOf("9") }
+    var workEnd by remember { mutableStateOf("18") }
 
     LaunchedEffect(profile) {
         profile?.let {
@@ -65,6 +68,8 @@ fun ProviderProfileScreen(
             longitude = it.longitude
             slotDuration = it.slotDurationMinutes.toString()
             bufferTime = it.bufferTimeMinutes.toString()
+            workStart = it.workStartHour.toString()
+            workEnd = it.workEndHour.toString()
         }
     }
 
@@ -143,7 +148,7 @@ fun ProviderProfileScreen(
                 title = { Text("My Profile") },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
                 actions = {
@@ -157,6 +162,8 @@ fun ProviderProfileScreen(
                             location,
                             latitude,
                             longitude,
+                            workStart.toIntOrNull() ?: 9,
+                            workEnd.toIntOrNull() ?: 18,
                             onSuccess = {
                                 Toast.makeText(context, "Profile updated successfully", Toast.LENGTH_SHORT).show()
                             },
@@ -296,6 +303,22 @@ fun ProviderProfileScreen(
                             value = bufferTime,
                             onValueChange = { bufferTime = it },
                             label = { Text("Buffer Time (min)") },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        OutlinedTextField(
+                            value = workStart,
+                            onValueChange = { workStart = it },
+                            label = { Text("Start Hour (0-23)") },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                        OutlinedTextField(
+                            value = workEnd,
+                            onValueChange = { workEnd = it },
+                            label = { Text("End Hour (0-23)") },
                             modifier = Modifier.weight(1f),
                             shape = RoundedCornerShape(12.dp)
                         )

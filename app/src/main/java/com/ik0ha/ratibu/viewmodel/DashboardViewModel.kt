@@ -36,6 +36,15 @@ class DashboardViewModel : ViewModel() {
     private val _bookings = MutableStateFlow<List<Session>>(emptyList())
     val bookings: StateFlow<List<Session>> = _bookings
 
+    private val _upcomingBookings = MutableStateFlow<List<Session>>(emptyList())
+    val upcomingBookings: StateFlow<List<Session>> = _upcomingBookings
+
+    private val _completedBookings = MutableStateFlow<List<Session>>(emptyList())
+    val completedBookings: StateFlow<List<Session>> = _completedBookings
+
+    private val _todayBookings = MutableStateFlow<List<Session>>(emptyList())
+    val todayBookings: StateFlow<List<Session>> = _todayBookings
+
     private val _analytics = MutableStateFlow<Map<String, String>>(emptyMap())
     val analytics: StateFlow<Map<String, String>> = _analytics
 
@@ -110,6 +119,31 @@ class DashboardViewModel : ViewModel() {
         bookingRepository.getBookingsByProvider(providerId) { list ->
             val sorted = list.sortedBy { it.startTime }
             _bookings.value = sorted
+            
+            // Upcoming: Not completed, not cancelled
+            _upcomingBookings.value = sorted.filter { 
+                it.status != "COMPLETED" && it.status != "CANCELLED"
+            }
+
+            // Completed: Specifically marked as completed
+            _completedBookings.value = sorted.filter { it.status == "COMPLETED" }
+
+            // Filter for today
+            val cal = Calendar.getInstance()
+            cal.set(Calendar.HOUR_OF_DAY, 0)
+            cal.set(Calendar.MINUTE, 0)
+            cal.set(Calendar.SECOND, 0)
+            cal.set(Calendar.MILLISECOND, 0)
+            val startOfDay = cal.timeInMillis
+            
+            cal.set(Calendar.HOUR_OF_DAY, 23)
+            cal.set(Calendar.MINUTE, 59)
+            cal.set(Calendar.SECOND, 59)
+            cal.set(Calendar.MILLISECOND, 999)
+            val endOfDay = cal.timeInMillis
+            
+            _todayBookings.value = sorted.filter { it.startTime in startOfDay..endOfDay }
+
             viewModelScope.launch(Dispatchers.Default) {
                 computeAnalytics(sorted)
             }
@@ -118,35 +152,35 @@ class DashboardViewModel : ViewModel() {
 
     private fun computeAnalytics(bookings: List<Session>) {
         val completed = bookings.filter { it.status == "COMPLETED" }
-        val busiestDay = completed.groupBy { 
-            SimpleDateFormat("EEEE", Locale.getDefault()).format(Date(it.startTime))
-        }.maxByOrNull { it.value.size }?.key ?: "None"
         
-        val busiestHour = completed.groupBy { 
-            SimpleDateFormat("HH:00", Locale.getDefault()).format(Date(it.startTime))
-        }.maxByOrNull { it.value.size }?.key ?: "None"
-
-        _analytics.value = mapOf(
-            "Busiest Day" to busiestDay,
-            "Peak Hour" to busiestHour,
-            "Completion Rate" to "${if (bookings.isNotEmpty()) (completed.size * 100 / bookings.size) else 0}%"
-        )
-
-        // Compute Detailed Analytics
+        // Distribution per day
         val dayCounts = completed.groupBy { 
             SimpleDateFormat("EEE", Locale.getDefault()).format(Date(it.startTime))
         }.mapValues { it.value.size }
 
+        // Distribution per hour
         val hourCounts = completed.groupBy { 
             SimpleDateFormat("HH:00", Locale.getDefault()).format(Date(it.startTime))
         }.mapValues { it.value.size }
 
+        val busiestDay = dayCounts.maxByOrNull { it.value }?.key ?: "None"
+        val busiestHour = hourCounts.maxByOrNull { it.value }?.key ?: "None"
+
+        // Retention metrics
         val uniqueClients = bookings.filter { it.clientId != "walk-in" }.map { it.clientId }.distinct().size
         val repeatClients = bookings.filter { it.clientId != "walk-in" }
             .groupBy { it.clientId }
             .filter { it.value.size > 1 }.size
+        val retentionRate = if (uniqueClients > 0) (repeatClients * 100 / uniqueClients) else 0
 
         val statusCounts = bookings.groupBy { it.status }.mapValues { it.value.size }
+
+        _analytics.value = mapOf(
+            "Busiest Day" to busiestDay,
+            "Peak Hour" to busiestHour,
+            "Retention" to "$retentionRate%",
+            "Completion Rate" to "${if (bookings.isNotEmpty()) (completed.size * 100 / bookings.size) else 0}%"
+        )
 
         _detailedAnalytics.value = DetailedAnalytics(
             dayDistribution = dayCounts,
@@ -199,6 +233,8 @@ class DashboardViewModel : ViewModel() {
         location: String,
         latitude: Double,
         longitude: Double,
+        workStart: Int,
+        workEnd: Int,
         onSuccess: () -> Unit,
         onFailure: (String) -> Unit
     ) {
@@ -211,7 +247,9 @@ class DashboardViewModel : ViewModel() {
                 "phoneNumber" to phoneNumber,
                 "location" to location,
                 "latitude" to latitude,
-                "longitude" to longitude
+                "longitude" to longitude,
+                "workStartHour" to workStart,
+                "workEndHour" to workEnd
             )
             userRepository.updateProviderProfile(providerId, updates, onSuccess, onFailure)
         }

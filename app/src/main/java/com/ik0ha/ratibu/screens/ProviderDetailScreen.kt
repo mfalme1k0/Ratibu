@@ -32,7 +32,6 @@ import coil.compose.AsyncImage
 import com.google.firebase.auth.FirebaseAuth
 import com.ik0ha.ratibu.R
 import com.ik0ha.ratibu.data.Review
-import com.ik0ha.ratibu.data.ServiceProvider
 import com.ik0ha.ratibu.viewmodel.HomeViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -242,8 +241,41 @@ fun ProviderDetailScreen(
                         Text("No reviews yet.", color = MaterialTheme.colorScheme.secondary)
                     }
                 } else {
-                    items(provider.reviews) { review ->
+                    val displayedReviews = provider.reviews.sortedByDescending { it.timestamp }.take(3)
+                    items(displayedReviews) { review ->
                         ReviewCard(review = review)
+                    }
+                    
+                    if (provider.reviews.size > 3) {
+                        item {
+                            var showAllReviews by remember { mutableStateOf(false) }
+                            TextButton(
+                                onClick = { showAllReviews = true },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text("See all ${provider.reviews.size} reviews")
+                            }
+
+                            if (showAllReviews) {
+                                AlertDialog(
+                                    onDismissRequest = { showAllReviews = false },
+                                    title = { Text("All Reviews") },
+                                    text = {
+                                        LazyColumn(
+                                            modifier = Modifier.heightIn(max = 400.dp),
+                                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                                        ) {
+                                            items(provider.reviews.sortedByDescending { it.timestamp }) { review ->
+                                                ReviewCard(review = review)
+                                            }
+                                        }
+                                    },
+                                    confirmButton = {
+                                        TextButton(onClick = { showAllReviews = false }) { Text("Close") }
+                                    }
+                                )
+                            }
+                        }
                     }
                 }
 

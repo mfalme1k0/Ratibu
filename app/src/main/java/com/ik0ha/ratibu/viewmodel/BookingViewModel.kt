@@ -24,9 +24,14 @@ class BookingViewModel(application: Application) : AndroidViewModel(application)
     private val _bookedRanges = MutableStateFlow<List<LongRange>>(emptyList())
     val bookedRanges: StateFlow<List<LongRange>> = _bookedRanges
 
+    private val _providerSettings = MutableStateFlow<ServiceProvider?>(null)
+    val providerSettings: StateFlow<ServiceProvider?> = _providerSettings
+
     fun fetchBookedSlots(providerId: String) {
         db.child("providers").child(providerId).get().addOnSuccessListener { providerSnapshot ->
             val provider = providerSnapshot.getValue(ServiceProvider::class.java)
+            _providerSettings.value = provider
+
             val duration = (provider?.slotDurationMinutes ?: 30) * 60 * 1000L
             val buffer = (provider?.bufferTimeMinutes ?: 10) * 60 * 1000L
             

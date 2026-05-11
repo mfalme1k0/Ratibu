@@ -36,6 +36,7 @@ fun BookingScreen(
     bookingViewModel: BookingViewModel = viewModel()
 ) {
     val bookedRanges by bookingViewModel.bookedRanges.collectAsState()
+    val providerSettings by bookingViewModel.providerSettings.collectAsState()
     
     val days = remember {
         (0..6).map { i ->
@@ -49,7 +50,33 @@ fun BookingScreen(
     var selectedTime by remember { mutableStateOf<String?>(null) }
     var notes by remember { mutableStateOf("") }
     
-    val timeSlots = listOf("09:00 AM", "10:00 AM", "11:00 AM", "01:00 PM", "02:00 PM", "03:00 PM", "04:00 PM")
+    val timeSlots = remember(providerSettings) {
+        val slots = mutableListOf<String>()
+        providerSettings?.let { settings ->
+            val cal = Calendar.getInstance()
+            cal.set(Calendar.HOUR_OF_DAY, settings.workStartHour)
+            cal.set(Calendar.MINUTE, 0)
+            cal.set(Calendar.SECOND, 0)
+            cal.set(Calendar.MILLISECOND, 0)
+            
+            val endCal = Calendar.getInstance()
+            endCal.set(Calendar.HOUR_OF_DAY, settings.workEndHour)
+            endCal.set(Calendar.MINUTE, 0)
+            endCal.set(Calendar.SECOND, 0)
+            endCal.set(Calendar.MILLISECOND, 0)
+            
+            val format = SimpleDateFormat("hh:mm a", Locale.getDefault())
+            val interval = settings.slotDurationMinutes + settings.bufferTimeMinutes
+            
+            while (cal.timeInMillis < endCal.timeInMillis) {
+                slots.add(format.format(cal.time))
+                cal.add(Calendar.MINUTE, interval)
+            }
+        }
+        if (slots.isEmpty()) {
+            listOf("09:00 AM", "10:00 AM", "11:00 AM", "12:00 PM", "01:00 PM", "02:00 PM", "03:00 PM", "04:00 PM", "05:00 PM")
+        } else slots
+    }
 
     LaunchedEffect(providerId) {
         bookingViewModel.fetchBookedSlots(providerId)

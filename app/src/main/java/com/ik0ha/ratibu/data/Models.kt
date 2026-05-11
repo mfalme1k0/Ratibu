@@ -20,8 +20,10 @@ data class ServiceProvider(
     val rating: Double = 0.0,
     val workSamples: List<WorkSample> = emptyList(),
     val reviews: List<Review> = emptyList(),
-    val slotDurationMinutes: Int = 30,
-    val bufferTimeMinutes: Int = 10,
+    val slotDurationMinutes: Int = 60,
+    val bufferTimeMinutes: Int = 15,
+    val workStartHour: Int = 9,    // 9 AM
+    val workEndHour: Int = 18,    // 6 PM
     val availability: Map<String, List<String>> = emptyMap() // Day -> List of slots
 )
 

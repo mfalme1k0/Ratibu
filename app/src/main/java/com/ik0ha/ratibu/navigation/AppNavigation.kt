@@ -44,6 +44,9 @@ fun AppNavigation() {
         composable("dashboard") {
             DashboardScreen(navController = navController)
         }
+        composable("today") {
+            TodayScreen(navController = navController)
+        }
         composable("analytics") {
             AnalyticsScreen(navController = navController)
         }
