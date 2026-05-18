@@ -17,6 +17,28 @@ class UserRepository {
             .addOnFailureListener { onResult(null) }
     }
 
+    fun saveUserBatch(user: User, isProvider: Boolean, onResult: (Boolean) -> Unit) {
+        val updates = mutableMapOf<String, Any>()
+        updates["users/${user.uid}"] = user
+        if (isProvider) {
+            updates["providers/${user.uid}"] = mapOf(
+                "uid" to user.uid,
+                "name" to user.name,
+                "category" to "General",
+                "rating" to 5.0,
+                "slotDurationMinutes" to 60,
+                "bufferTimeMinutes" to 15,
+                "workStartHour" to 9,
+                "workEndHour" to 18
+            )
+        }
+        db.updateChildren(updates).addOnCompleteListener { onResult(it.isSuccessful) }
+    }
+
+    fun updateFcmToken(uid: String, token: String) {
+        db.child("users").child(uid).child("fcmToken").setValue(token)
+    }
+
     fun saveUser(user: User, onResult: (Boolean) -> Unit) {
         db.child("users").child(user.uid).setValue(user)
             .addOnCompleteListener { onResult(it.isSuccessful) }

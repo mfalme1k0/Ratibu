@@ -44,6 +44,7 @@ data class Session(
     val clientId: String = "",
     val clientName: String = "Walk-in",
     val providerId: String = "",
+    val providerName: String = "",
     val startTime: Long = 0L,
     val endTime: Long = 0L,
     val status: String = "PENDING", // PENDING, CONFIRMED, CANCELLED, COMPLETED

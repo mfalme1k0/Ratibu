@@ -1,12 +1,15 @@
 package com.ik0ha.ratibu.viewmodel
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.messaging.FirebaseMessaging
+import com.ik0ha.ratibu.data.CacheManager
 import com.ik0ha.ratibu.data.User
 import com.ik0ha.ratibu.data.repository.UserRepository
 import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 
 sealed class AuthEvent {
@@ -15,23 +18,20 @@ sealed class AuthEvent {
     data class Error(val message: String) : AuthEvent()
 }
 
-class AuthViewModel : ViewModel() {
+class AuthViewModel(application: Application) : AndroidViewModel(application) {
     private val auth = FirebaseAuth.getInstance()
     private val repository = UserRepository()
+    private val cacheManager = CacheManager(application)
 
     private val _events = MutableSharedFlow<AuthEvent>()
-    val events: SharedFlow<AuthEvent> = _events
+    val events = _events.asSharedFlow()
 
     fun login(email: String, pass: String) {
-        if (email.isEmpty() || pass.isEmpty()) {
-            viewModelScope.launch { _events.emit(AuthEvent.Error("Please fill all fields")) }
-            return
-        }
-
         auth.signInWithEmailAndPassword(email, pass)
             .addOnCompleteListener { task ->
                 if (task.isSuccessful) {
-                    val uid = auth.currentUser?.uid ?: ""
+                    val uid = task.result?.user?.uid ?: ""
+                    updateFcmToken(uid)
                     repository.getUserRole(uid) { role ->
                         viewModelScope.launch {
                             if (role == "PROVIDER") {
@@ -48,34 +48,24 @@ class AuthViewModel : ViewModel() {
     }
 
     fun register(email: String, pass: String, name: String, role: String) {
-        if (email.isEmpty() || pass.isEmpty() || name.isEmpty()) {
-            viewModelScope.launch { _events.emit(AuthEvent.Error("Please fill all fields")) }
-            return
-        }
-
         auth.createUserWithEmailAndPassword(email, pass)
             .addOnCompleteListener { task ->
                 if (task.isSuccessful) {
-                    val uid = auth.currentUser?.uid ?: ""
+                    val uid = task.result?.user?.uid ?: ""
+                    updateFcmToken(uid)
                     val user = User(uid, name, email, role)
                     
-                    repository.saveUser(user) { success ->
-                        if (success) {
-                            if (role == "PROVIDER") {
-                                repository.saveProviderData(uid, name) { providerSuccess ->
-                                    viewModelScope.launch {
-                                        if (providerSuccess) {
-                                            _events.emit(AuthEvent.ProviderLoginSuccess)
-                                        } else {
-                                            _events.emit(AuthEvent.Error("Failed to save provider data"))
-                                        }
-                                    }
+                    repository.saveUserBatch(user, role == "PROVIDER") { success ->
+                        viewModelScope.launch {
+                            if (success) {
+                                if (role == "PROVIDER") {
+                                    _events.emit(AuthEvent.ProviderLoginSuccess)
+                                } else {
+                                    _events.emit(AuthEvent.LoginSuccess)
                                 }
                             } else {
-                                viewModelScope.launch { _events.emit(AuthEvent.LoginSuccess) }
+                                _events.emit(AuthEvent.Error("Failed to save user data"))
                             }
-                        } else {
-                            viewModelScope.launch { _events.emit(AuthEvent.Error("Failed to save user data")) }
                         }
                     }
                 } else {
@@ -84,8 +74,17 @@ class AuthViewModel : ViewModel() {
             }
     }
 
+    private fun updateFcmToken(uid: String) {
+        FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
+            if (task.isSuccessful) {
+                repository.updateFcmToken(uid, task.result)
+            }
+        }
+    }
+
     fun logout(onComplete: () -> Unit) {
         auth.signOut()
+        cacheManager.clearAll()
         onComplete()
     }
 }

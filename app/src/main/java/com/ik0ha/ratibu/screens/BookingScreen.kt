@@ -277,7 +277,13 @@ fun BookingScreen(
                 onClick = {
                     selectedTime?.let { time ->
                         val startTime = getTimestamp(selectedDay, time)
-                        bookingViewModel.bookSession(providerId, "Service Provider", startTime, reminderMinutes.toInt(), notes)
+                        bookingViewModel.bookSession(
+                            providerId, 
+                            providerSettings?.name ?: "Service Provider", 
+                            startTime, 
+                            reminderMinutes.toInt(), 
+                            notes
+                        )
                         navController.navigate("home") {
                             popUpTo("home") { inclusive = true }
                         }

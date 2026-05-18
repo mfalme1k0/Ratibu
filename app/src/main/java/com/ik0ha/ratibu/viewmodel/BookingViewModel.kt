@@ -7,6 +7,7 @@ import androidx.work.Data
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import com.google.firebase.database.FirebaseDatabase
+import com.ik0ha.ratibu.data.CacheManager
 import com.ik0ha.ratibu.data.ReminderWorker
 import com.ik0ha.ratibu.data.Session
 import com.ik0ha.ratibu.data.ServiceProvider
@@ -18,7 +19,8 @@ import java.util.concurrent.TimeUnit
 
 class BookingViewModel(application: Application) : AndroidViewModel(application) {
     private val db = FirebaseDatabase.getInstance().reference
-    private val bookingRepository = BookingRepository()
+    private val cacheManager = CacheManager(application)
+    private val bookingRepository = BookingRepository(cacheManager)
     private val userRepository = UserRepository()
 
     private val _bookedRanges = MutableStateFlow<List<LongRange>>(emptyList())
@@ -55,6 +57,7 @@ class BookingViewModel(application: Application) : AndroidViewModel(application)
                 clientId = clientId,
                 clientName = clientName,
                 providerId = providerId,
+                providerName = providerName,
                 startTime = startTime,
                 status = "PENDING",
                 reminderTimeMinutes = reminderMinutes,

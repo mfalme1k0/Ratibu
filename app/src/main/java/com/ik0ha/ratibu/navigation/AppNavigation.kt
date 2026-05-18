@@ -41,6 +41,9 @@ fun AppNavigation() {
         composable("home") {
             HomeScreen(navController = navController)
         }
+        composable("my_bookings") {
+            MyBookingsScreen(navController = navController)
+        }
         composable("dashboard") {
             DashboardScreen(navController = navController)
         }

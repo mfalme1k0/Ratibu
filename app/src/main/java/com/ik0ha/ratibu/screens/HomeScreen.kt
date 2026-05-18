@@ -7,6 +7,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.ExitToApp
@@ -60,6 +61,9 @@ fun HomeScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = { navController.navigate("my_bookings") }) {
+                        Icon(Icons.Default.CalendarMonth, contentDescription = "My Bookings", tint = MaterialTheme.colorScheme.primary)
+                    }
                     IconButton(onClick = { navController.navigate("chat_list") }) {
                         Icon(Icons.Default.Chat, contentDescription = "Messages", tint = MaterialTheme.colorScheme.primary)
                     }

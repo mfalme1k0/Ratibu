@@ -1,13 +1,15 @@
 package com.ik0ha.ratibu.viewmodel
 
+import android.app.Application
 import android.net.Uri
-import androidx.lifecycle.ViewModel
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.ValueEventListener
+import com.ik0ha.ratibu.data.CacheManager
 import com.ik0ha.ratibu.data.CloudinaryHelper
 import com.ik0ha.ratibu.data.DetailedAnalytics
 import com.ik0ha.ratibu.data.ServiceProvider
@@ -22,13 +24,14 @@ import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 
-class DashboardViewModel : ViewModel() {
+class DashboardViewModel(application: Application) : AndroidViewModel(application) {
     private val auth = FirebaseAuth.getInstance()
     private val db = FirebaseDatabase.getInstance().reference
     private val providerId = auth.currentUser?.uid ?: ""
     
+    private val cacheManager = CacheManager(application)
     private val userRepository = UserRepository()
-    private val bookingRepository = BookingRepository()
+    private val bookingRepository = BookingRepository(cacheManager)
 
     private val _providerProfile = MutableStateFlow<ServiceProvider?>(null)
     val providerProfile: StateFlow<ServiceProvider?> = _providerProfile
@@ -56,6 +59,8 @@ class DashboardViewModel : ViewModel() {
 
     init {
         if (providerId.isNotEmpty()) {
+            // Load profile from cache first
+            _providerProfile.value = cacheManager.getProfile(providerId)
             fetchProfile()
             fetchBookings()
         }
@@ -65,11 +70,12 @@ class DashboardViewModel : ViewModel() {
         db.child("providers").child(providerId).addValueEventListener(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 try {
-                    // Try parsing as current model
                     val profile = snapshot.getValue(ServiceProvider::class.java)
-                    _providerProfile.value = profile
+                    profile?.let { 
+                        _providerProfile.value = it
+                        cacheManager.saveProfile(it)
+                    }
                 } catch (e: Exception) {
-                    // Fallback: manually parse to handle old data format in workSamples
                     val name = snapshot.child("name").getValue(String::class.java) ?: ""
                     val category = snapshot.child("category").getValue(String::class.java) ?: ""
                     val bio = snapshot.child("bio").getValue(String::class.java) ?: ""
@@ -87,7 +93,6 @@ class DashboardViewModel : ViewModel() {
                             val sample = sampleSnap.getValue(WorkSample::class.java)
                             if (sample != null) workSamples.add(sample)
                         } catch (e2: Exception) {
-                            // It's likely a simple String URL (old format)
                             val url = sampleSnap.getValue(String::class.java) ?: ""
                             if (url.isNotEmpty()) {
                                 workSamples.add(WorkSample(imageUrl = url, description = "Previous Work"))
@@ -109,6 +114,7 @@ class DashboardViewModel : ViewModel() {
                         workSamples = workSamples
                     )
                     _providerProfile.value = profile
+                    cacheManager.saveProfile(profile)
                 }
             }
             override fun onCancelled(error: DatabaseError) {}
@@ -120,15 +126,12 @@ class DashboardViewModel : ViewModel() {
             val sorted = list.sortedBy { it.startTime }
             _bookings.value = sorted
             
-            // Upcoming: Not completed, not cancelled
             _upcomingBookings.value = sorted.filter { 
                 it.status != "COMPLETED" && it.status != "CANCELLED"
             }
 
-            // Completed: Specifically marked as completed
             _completedBookings.value = sorted.filter { it.status == "COMPLETED" }
 
-            // Filter for today
             val cal = Calendar.getInstance()
             cal.set(Calendar.HOUR_OF_DAY, 0)
             cal.set(Calendar.MINUTE, 0)
@@ -153,12 +156,10 @@ class DashboardViewModel : ViewModel() {
     private fun computeAnalytics(bookings: List<Session>) {
         val completed = bookings.filter { it.status == "COMPLETED" }
         
-        // Distribution per day
         val dayCounts = completed.groupBy { 
             SimpleDateFormat("EEE", Locale.getDefault()).format(Date(it.startTime))
         }.mapValues { it.value.size }
 
-        // Distribution per hour
         val hourCounts = completed.groupBy { 
             SimpleDateFormat("HH:00", Locale.getDefault()).format(Date(it.startTime))
         }.mapValues { it.value.size }
@@ -166,7 +167,6 @@ class DashboardViewModel : ViewModel() {
         val busiestDay = dayCounts.maxByOrNull { it.value }?.key ?: "None"
         val busiestHour = hourCounts.maxByOrNull { it.value }?.key ?: "None"
 
-        // Retention metrics
         val uniqueClients = bookings.filter { it.clientId != "walk-in" }.map { it.clientId }.distinct().size
         val repeatClients = bookings.filter { it.clientId != "walk-in" }
             .groupBy { it.clientId }
