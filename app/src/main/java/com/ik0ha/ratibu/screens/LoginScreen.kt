@@ -50,6 +50,9 @@ fun LoginScreen(
                         popUpTo("login") { inclusive = true }
                     }
                 }
+                is AuthEvent.PasswordResetSent -> {
+                    Toast.makeText(context, "Password reset email sent. Check your inbox.", Toast.LENGTH_LONG).show()
+                }
                 is AuthEvent.Error -> {
                     Toast.makeText(context, event.message, Toast.LENGTH_SHORT).show()
                 }
@@ -128,7 +131,7 @@ fun LoginScreen(
         Spacer(modifier = Modifier.height(12.dp))
 
         TextButton(
-            onClick = { /* Handle forgot password logic */ },
+            onClick = { authViewModel.resetPassword(email) },
             modifier = Modifier.align(Alignment.End)
         ) {
             Text("Forgot Password?", color = MaterialTheme.colorScheme.primary, fontSize = 12.sp)

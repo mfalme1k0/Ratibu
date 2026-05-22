@@ -1,8 +1,9 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.google.gms.google.services)
-    id("com.google.android.libraries.mapsplatform.secrets-gradle-plugin")
 }
 
 android {
@@ -17,6 +18,15 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // Load properties from local.properties
+        val properties = Properties()
+        val propertiesFile = project.rootProject.file("local.properties")
+        if (propertiesFile.exists()) {
+            properties.load(propertiesFile.inputStream())
+        }
+
+        buildConfigField("String", "CLOUDINARY_CLOUD_NAME", "\"${properties.getProperty("CLOUDINARY_CLOUD_NAME") ?: ""}\"")
     }
 
     signingConfigs {

@@ -20,6 +20,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -33,6 +34,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.ik0ha.ratibu.R
 import com.ik0ha.ratibu.data.Review
 import com.ik0ha.ratibu.viewmodel.HomeViewModel
+import androidx.compose.material.icons.filled.Message
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -319,22 +321,22 @@ fun ProviderDetailScreen(
                         }
                         Spacer(modifier = Modifier.height(12.dp))
 
-                        // Get Directions Button
-                        if (provider.latitude != 0.0 && provider.longitude != 0.0) {
+                        // WhatsApp Button
+                        if (provider.phoneNumber.isNotEmpty()) {
                             Button(
                                 onClick = {
-                                    val gmmIntentUri = Uri.parse("google.navigation:q=${provider.latitude},${provider.longitude}")
-                                    val mapIntent = Intent(Intent.ACTION_VIEW, gmmIntentUri)
-                                    mapIntent.setPackage("com.google.android.apps.maps")
-                                    context.startActivity(mapIntent)
+                                    val cleanNumber = provider.phoneNumber.filter { it.isDigit() }
+                                    val url = "https://api.whatsapp.com/send?phone=$cleanNumber"
+                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                                    context.startActivity(intent)
                                 },
                                 modifier = Modifier.fillMaxWidth(),
-                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF25D366)),
                                 shape = RoundedCornerShape(12.dp)
                             ) {
-                                Icon(Icons.Default.LocationOn, contentDescription = null)
+                                Icon(Icons.Default.Message, contentDescription = null, tint = Color.White)
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text("Get Directions")
+                                Text("WhatsApp Provider", color = Color.White)
                             }
                             Spacer(modifier = Modifier.height(12.dp))
                         }

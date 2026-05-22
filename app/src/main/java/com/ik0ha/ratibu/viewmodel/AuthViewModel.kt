@@ -15,6 +15,7 @@ import kotlinx.coroutines.launch
 sealed class AuthEvent {
     object LoginSuccess : AuthEvent()
     object ProviderLoginSuccess : AuthEvent()
+    object PasswordResetSent : AuthEvent()
     data class Error(val message: String) : AuthEvent()
 }
 
@@ -86,5 +87,22 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         auth.signOut()
         cacheManager.clearAll()
         onComplete()
+    }
+
+    fun resetPassword(email: String) {
+        if (email.isEmpty()) {
+            viewModelScope.launch { _events.emit(AuthEvent.Error("Please enter your email address")) }
+            return
+        }
+        auth.sendPasswordResetEmail(email)
+            .addOnCompleteListener { task ->
+                viewModelScope.launch {
+                    if (task.isSuccessful) {
+                        _events.emit(AuthEvent.PasswordResetSent)
+                    } else {
+                        _events.emit(AuthEvent.Error("Reset failed: ${task.exception?.message}"))
+                    }
+                }
+            }
     }
 }
