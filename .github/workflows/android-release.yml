@@ -24,6 +24,10 @@ jobs:
           mkdir -p ${{ github.workspace }}
           echo "sdk.dir=$ANDROID_SDK_ROOT" > ${{ github.workspace }}/local.properties
 
+      - name: Decode and create google-services.json
+        run: |
+          echo "${{ secrets.GOOGLE_SERVICES_JSON }}" > app/google-services.json
+
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
