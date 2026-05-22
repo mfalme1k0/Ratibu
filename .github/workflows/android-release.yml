@@ -21,8 +21,7 @@ jobs:
 
       - name: Create local.properties
         run: |
-          mkdir -p ${{ github.workspace }}
-          echo "sdk.dir=$ANDROID_SDK_ROOT" > ${{ github.workspace }}/local.properties
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
 
       - name: Decode and create google-services.json
         run: |
