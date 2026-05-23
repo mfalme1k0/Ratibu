@@ -57,9 +57,16 @@ jobs:
         echo "SUCCESS: Store Password is correct."
         
         # 2. Extract and print the actual Alias Name from the file.
-        ACTUAL_ALIAS=$(grep "Alias name:" keystore_list.txt | cut -d' ' -f3-)
+        # We'll use a more robust way to find the alias line
+        ACTUAL_ALIAS=$(grep "Alias name:" keystore_list.txt | head -n 1 | sed 's/Alias name: //g' | xargs)
         echo "The ACTUAL Alias name inside your file is: [$ACTUAL_ALIAS]"
         echo "The Alias name you provided in GitHub is: [${{ secrets.RELEASE_KEY_ALIAS }}]"
+        
+        if [ -z "$ACTUAL_ALIAS" ]; then
+          echo "DEBUG: Printing full keytool output because alias was not found..."
+          cat keystore_list.txt
+          exit 1
+        fi
         
         if [ "$ACTUAL_ALIAS" != "${{ secrets.RELEASE_KEY_ALIAS }}" ]; then
           echo "------------------------------------------------------------"
