@@ -83,6 +83,9 @@ jobs:
       run: |
         echo "sdk.dir=$ANDROID_HOME" > local.properties
         echo "CLOUDINARY_CLOUD_NAME=${{ secrets.CLOUDINARY_CLOUD_NAME }}" >> local.properties
+        echo "RELEASE_STORE_PASSWORD=${{ secrets.RELEASE_STORE_PASSWORD }}" >> local.properties
+        echo "RELEASE_KEY_ALIAS=${{ secrets.RELEASE_KEY_ALIAS }}" >> local.properties
+        echo "RELEASE_KEY_PASSWORD=${{ secrets.RELEASE_KEY_PASSWORD }}" >> local.properties
 
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
