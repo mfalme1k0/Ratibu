@@ -36,7 +36,7 @@ jobs:
           echo "ERROR: RELEASE_KEYSTORE_BASE64 secret is empty"
           exit 1
         fi
-        echo "$ENCODED_KEYSTORE" | base64 --decode > app/release-keystore.jks
+        echo "$ENCODED_KEYSTORE" | base64 --decode > app/keystore.jks
 
     - name: Create local.properties
       run: |
@@ -48,7 +48,7 @@ jobs:
 
     - name: Build Release Bundle (AAB)
       env:
-        RELEASE_STORE_FILE: release-keystore.jks
+        RELEASE_STORE_FILE: keystore.jks
         RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
         RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
         RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
@@ -56,7 +56,7 @@ jobs:
 
     - name: Build Release APK
       env:
-        RELEASE_STORE_FILE: release-keystore.jks
+        RELEASE_STORE_FILE: keystore.jks
         RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
         RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
         RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
