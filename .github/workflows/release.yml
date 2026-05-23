@@ -40,10 +40,11 @@ jobs:
 
     - name: Decode Keystore
       env:
-        ENCODED_KEYSTORE: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+        # We try both common naming patterns just in case there's a typo in GitHub
+        ENCODED_KEYSTORE: ${{ secrets.RELEASE_KEYSTORE_BASE64 || secrets.KEYSTORE_RELEASE_BASE64 }}
       run: |
         if [ -z "$ENCODED_KEYSTORE" ]; then
-          echo "ERROR: RELEASE_KEYSTORE_BASE64 secret is empty"
+          echo "ERROR: Neither RELEASE_KEYSTORE_BASE64 nor KEYSTORE_RELEASE_BASE64 found in secrets."
           exit 1
         fi
         echo "$ENCODED_KEYSTORE" | base64 --decode > keystore.jks
