@@ -43,13 +43,24 @@ jobs:
         ENCODED_KEYSTORE: ${{ secrets.RELEASE_KEYSTORE_BASE64 || secrets.KEYSTORE_RELEASE_BASE64 }}
       run: |
         if [ -z "$ENCODED_KEYSTORE" ]; then
-          echo "ERROR: Neither RELEASE_KEYSTORE_BASE64 nor KEYSTORE_RELEASE_BASE64 found in secrets."
+          echo "ERROR: No keystore secret found."
           exit 1
         fi
-        # Use -d and ignore garbage to be more robust
-        echo "$ENCODED_KEYSTORE" | base64 -d > keystore.jks
-        echo "Keystore file size: $(wc -c < keystore.jks) bytes"
-        if [ ! -s keystore.jks ]; then echo "ERROR: Keystore file is empty"; exit 1; fi
+        
+        echo "Encoded secret length: ${#ENCODED_KEYSTORE} characters"
+        
+        # Decode using a method that handles potential whitespace/newlines better
+        echo "$ENCODED_KEYSTORE" | tr -d '[:space:]' | base64 -d > keystore.jks
+        
+        echo "Decoded file size: $(wc -c < keystore.jks) bytes"
+        
+        if [ ! -s keystore.jks ]; then
+          echo "ERROR: Decoded keystore is empty."
+          exit 1
+        fi
+        
+        # Check if it's a valid ZIP/JKS header (optional but helpful)
+        head -c 4 keystore.jks | hexdump -C || echo "Could not read header"
 
     - name: Verify Keystore Integrity
       env:
