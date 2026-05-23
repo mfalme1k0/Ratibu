@@ -10,6 +10,13 @@ android {
     namespace = "com.ik0ha.ratibu"
     compileSdk = 35
 
+    // Load properties from local.properties
+    val properties = Properties()
+    val propertiesFile = project.rootProject.file("local.properties")
+    if (propertiesFile.exists()) {
+        properties.load(propertiesFile.inputStream())
+    }
+
     defaultConfig {
         applicationId = "com.ik0ha.ratibu"
         minSdk = 24
@@ -19,22 +26,20 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        // Load properties from local.properties
-        val properties = Properties()
-        val propertiesFile = project.rootProject.file("local.properties")
-        if (propertiesFile.exists()) {
-            properties.load(propertiesFile.inputStream())
-        }
-
         buildConfigField("String", "CLOUDINARY_CLOUD_NAME", "\"${properties.getProperty("CLOUDINARY_CLOUD_NAME") ?: ""}\"")
     }
 
     signingConfigs {
         create("release") {
-            storeFile = file(System.getenv("RELEASE_STORE_FILE") ?: "keystore.jks")
+            storeFile = file(System.getenv("RELEASE_STORE_FILE")
+                ?: properties.getProperty("RELEASE_STORE_FILE")
+                ?: "${project.projectDir}/keystore.jks")
             storePassword = System.getenv("RELEASE_STORE_PASSWORD")
+                ?: properties.getProperty("RELEASE_STORE_PASSWORD")
             keyAlias = System.getenv("RELEASE_KEY_ALIAS")
+                ?: properties.getProperty("RELEASE_KEY_ALIAS")
             keyPassword = System.getenv("RELEASE_KEY_PASSWORD")
+                ?: properties.getProperty("RELEASE_KEY_PASSWORD")
         }
     }
 

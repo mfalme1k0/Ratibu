@@ -21,15 +21,22 @@ jobs:
         distribution: 'temurin'
         cache: gradle
 
-    - name: Decode Google Services JSON
+    - name: Create google-services.json
       env:
         GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
-      run: echo $GOOGLE_SERVICES_JSON | base64 --decode > app/google-services.json
+      run: |
+        printf "%s" "$GOOGLE_SERVICES_JSON" > app/google-services.json
+        if [ ! -s app/google-services.json ]; then echo "ERROR: File is empty"; exit 1; fi
 
     - name: Decode Keystore
       env:
-        ENCODED_KEYSTORE: ${{ secrets.RELEASE_KEYSTORE }}
-      run: echo $ENCODED_KEYSTORE | base64 --decode > app/release-keystore.jks
+        ENCODED_KEYSTORE: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+      run: |
+        if [ -z "$ENCODED_KEYSTORE" ]; then
+          echo "ERROR: RELEASE_KEYSTORE_BASE64 secret is empty"
+          exit 1
+        fi
+        echo "$ENCODED_KEYSTORE" | base64 --decode > app/release-keystore.jks
 
     - name: Create local.properties
       run: |
