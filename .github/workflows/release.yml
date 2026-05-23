@@ -38,20 +38,36 @@ jobs:
         fi
         echo "$ENCODED_KEYSTORE" | tr -d '[:space:]' | base64 -d > keystore.jks
 
-    - name: Debug Signing Variables
+    - name: MANDATORY Keystore Check
       env:
         STORE_PASS: ${{ secrets.RELEASE_STORE_PASSWORD }}
-        KEY_PASS: ${{ secrets.RELEASE_KEY_PASSWORD }}
         KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
       run: |
-        echo "Verifying secret lengths (no values shown):"
-        echo "STORE_PASSWORD length: ${#STORE_PASS}"
-        echo "KEY_PASSWORD length: ${#KEY_PASS}"
-        echo "KEY_ALIAS length: ${#KEY_ALIAS}"
+        echo "Verifying your GitHub Secrets against the decoded file..."
         
-        # Test the password directly against the file we just decoded
-        echo "Testing password against decoded file..."
-        keytool -list -keystore keystore.jks -storepass "$STORE_PASS" && echo "PASSWORD VERIFIED" || echo "PASSWORD FAILED"
+        # 1. Try to list the content. This verifies the STORE_PASSWORD.
+        if ! keytool -list -keystore keystore.jks -storepass "$STORE_PASS" > keystore_list.txt; then
+          echo "------------------------------------------------------------"
+          echo "ERROR: The RELEASE_STORE_PASSWORD in GitHub is INCORRECT."
+          echo "It cannot even open the keystore file."
+          echo "------------------------------------------------------------"
+          exit 1
+        fi
+        
+        echo "SUCCESS: Store Password is correct."
+        
+        # 2. Extract and print the actual Alias Name from the file.
+        ACTUAL_ALIAS=$(grep "Alias name:" keystore_list.txt | cut -d' ' -f3-)
+        echo "The ACTUAL Alias name inside your file is: [$ACTUAL_ALIAS]"
+        echo "The Alias name you provided in GitHub is: [${{ secrets.RELEASE_KEY_ALIAS }}]"
+        
+        if [ "$ACTUAL_ALIAS" != "${{ secrets.RELEASE_KEY_ALIAS }}" ]; then
+          echo "------------------------------------------------------------"
+          echo "ERROR: ALIAS MISMATCH!"
+          echo "Your file uses [$ACTUAL_ALIAS] but GitHub has [${{ secrets.RELEASE_KEY_ALIAS }}]"
+          echo "------------------------------------------------------------"
+          exit 1
+        fi
 
     - name: Create local.properties
       run: |
