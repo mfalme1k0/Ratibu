@@ -14,6 +14,14 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
+    - name: Debug Secrets Presence
+      run: |
+        echo "Checking if secrets are available to the workflow..."
+        if [ -n "${{ secrets.GOOGLE_SERVICES_JSON }}" ]; then echo "GOOGLE_SERVICES_JSON is PRESENT"; else echo "GOOGLE_SERVICES_JSON is MISSING"; fi
+        if [ -n "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" ]; then echo "RELEASE_KEYSTORE_BASE64 is PRESENT"; else echo "RELEASE_KEYSTORE_BASE64 is MISSING"; fi
+        if [ -n "${{ secrets.RELEASE_STORE_PASSWORD }}" ]; then echo "RELEASE_STORE_PASSWORD is PRESENT"; else echo "RELEASE_STORE_PASSWORD is MISSING"; fi
+        if [ -n "${{ secrets.CLOUDINARY_CLOUD_NAME }}" ]; then echo "CLOUDINARY_CLOUD_NAME is PRESENT"; else echo "CLOUDINARY_CLOUD_NAME is MISSING"; fi
+
     - name: Set up JDK 17
       uses: actions/setup-java@v4
       with:
