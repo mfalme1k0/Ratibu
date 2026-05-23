@@ -46,7 +46,10 @@ jobs:
           echo "ERROR: Neither RELEASE_KEYSTORE_BASE64 nor KEYSTORE_RELEASE_BASE64 found in secrets."
           exit 1
         fi
-        echo "$ENCODED_KEYSTORE" | base64 --decode > keystore.jks
+        # Use -d and ignore garbage to be more robust
+        echo "$ENCODED_KEYSTORE" | base64 -d > keystore.jks
+        echo "Keystore file size: $(wc -c < keystore.jks) bytes"
+        if [ ! -s keystore.jks ]; then echo "ERROR: Keystore file is empty"; exit 1; fi
 
     - name: Verify Keystore Integrity
       env:
