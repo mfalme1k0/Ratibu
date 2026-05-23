@@ -95,7 +95,8 @@ jobs:
         RELEASE_STORE_FILE: ../keystore.jks
         RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
         RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
-        RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+        # Force the Key Password to be identical to the Store Password for PKCS12
+        RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
       run: ./gradlew bundleRelease
 
     - name: Build Release APK
@@ -103,7 +104,8 @@ jobs:
         RELEASE_STORE_FILE: ../keystore.jks
         RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
         RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
-        RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+        # Force the Key Password to be identical to the Store Password for PKCS12
+        RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
       run: ./gradlew assembleRelease
 
     - name: Create GitHub Release
