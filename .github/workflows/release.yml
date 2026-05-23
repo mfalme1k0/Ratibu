@@ -38,47 +38,6 @@ jobs:
         fi
         echo "$ENCODED_KEYSTORE" | tr -d '[:space:]' | base64 -d > keystore.jks
 
-    - name: MANDATORY Keystore Check
-      env:
-        STORE_PASS: ${{ secrets.RELEASE_STORE_PASSWORD }}
-        KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
-      run: |
-        echo "Verifying your GitHub Secrets against the decoded file..."
-        
-        # 1. Try to list the content. This verifies the STORE_PASSWORD.
-        if ! keytool -list -keystore keystore.jks -storepass "$STORE_PASS" > keystore_list.txt; then
-          echo "------------------------------------------------------------"
-          echo "ERROR: The RELEASE_STORE_PASSWORD in GitHub is INCORRECT."
-          echo "It cannot even open the keystore file."
-          echo "------------------------------------------------------------"
-          exit 1
-        fi
-        
-        echo "SUCCESS: Store Password is correct."
-        
-        # 2. Extract and print the actual Alias Name from the file.
-        # We use a more robust extraction for PKCS12 which doesn't always use "Alias name:"
-        ACTUAL_ALIAS=$(keytool -list -keystore keystore.jks -storepass "$STORE_PASS" | grep "PrivateKeyEntry" | cut -d',' -f1 | xargs)
-        
-        # To help the user see it if it's being masked by GitHub:
-        REVERSED_ALIAS=$(echo "$ACTUAL_ALIAS" | rev)
-        echo "The ACTUAL Alias (REVERSED) is: [$REVERSED_ALIAS]"
-        echo "The Alias name you provided in GitHub is: [${{ secrets.RELEASE_KEY_ALIAS }}]"
-        
-        if [ -z "$ACTUAL_ALIAS" ]; then
-          echo "DEBUG: Printing full keytool output because alias was not found..."
-          cat keystore_list.txt
-          exit 1
-        fi
-        
-        if [ "$ACTUAL_ALIAS" != "${{ secrets.RELEASE_KEY_ALIAS }}" ]; then
-          echo "------------------------------------------------------------"
-          echo "ERROR: ALIAS MISMATCH!"
-          echo "Your file uses [$ACTUAL_ALIAS] but GitHub has [${{ secrets.RELEASE_KEY_ALIAS }}]"
-          echo "------------------------------------------------------------"
-          exit 1
-        fi
-
     - name: Create local.properties
       run: |
         echo "sdk.dir=$ANDROID_HOME" > local.properties
@@ -95,8 +54,7 @@ jobs:
         RELEASE_STORE_FILE: ../keystore.jks
         RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
         RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
-        # Force the Key Password to be identical to the Store Password for PKCS12
-        RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
+        RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
       run: ./gradlew bundleRelease
 
     - name: Build Release APK
@@ -104,8 +62,7 @@ jobs:
         RELEASE_STORE_FILE: ../keystore.jks
         RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
         RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
-        # Force the Key Password to be identical to the Store Password for PKCS12
-        RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
+        RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
       run: ./gradlew assembleRelease
 
     - name: Create GitHub Release
