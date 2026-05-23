@@ -5,8 +5,12 @@ import com.ik0ha.ratibu.data.ChatChannel
 import com.ik0ha.ratibu.data.ChatMessage
 import com.ik0ha.ratibu.data.repository.ChatRepository
 import com.ik0ha.ratibu.data.repository.UserRepository
+import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.map
 
 class ChatViewModel : ViewModel() {
     private val userRepository = UserRepository()
@@ -21,9 +25,10 @@ class ChatViewModel : ViewModel() {
 
     fun fetchMessages(otherUserId: String) {
         val channelId = getChannelId(currentUserId, otherUserId)
-        chatRepository.getMessages(channelId) { list ->
-            _messages.value = list.sortedBy { it.timestamp }
-        }
+        chatRepository.getMessages(channelId)
+            .map { list -> list.sortedBy { it.timestamp } }
+            .onEach { _messages.value = it }
+            .launchIn(viewModelScope)
     }
 
     fun sendMessage(otherUserId: String, text: String, otherUserName: String, currentUserName: String) {
@@ -49,9 +54,10 @@ class ChatViewModel : ViewModel() {
     }
 
     fun fetchChannels() {
-        chatRepository.getChannels(currentUserId) { list ->
-            _channels.value = list.sortedByDescending { it.lastTimestamp }
-        }
+        chatRepository.getChannels(currentUserId)
+            .map { list -> list.sortedByDescending { it.lastTimestamp } }
+            .onEach { _channels.value = it }
+            .launchIn(viewModelScope)
     }
 
     private fun getChannelId(id1: String, id2: String): String {

@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
+import com.ik0ha.ratibu.data.UserRole
 import com.ik0ha.ratibu.viewmodel.AuthEvent
 import com.ik0ha.ratibu.viewmodel.AuthViewModel
 
@@ -38,7 +39,7 @@ fun RegistrationScreen(
     var name by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-    var role by remember { mutableStateOf("CLIENT") }
+    var role by remember { mutableStateOf(UserRole.CLIENT) }
     
     val context = LocalContext.current
 
@@ -54,6 +55,9 @@ fun RegistrationScreen(
                     navController.navigate("dashboard") {
                         popUpTo("login") { inclusive = true }
                     }
+                }
+                is AuthEvent.PasswordResetSent -> {
+                    Toast.makeText(context, "Password reset email sent. Check your inbox.", Toast.LENGTH_LONG).show()
                 }
                 is AuthEvent.Error -> {
                     Toast.makeText(context, event.message, Toast.LENGTH_SHORT).show()
@@ -141,10 +145,10 @@ fun RegistrationScreen(
         
         Text("I am a:", color = MaterialTheme.colorScheme.secondary)
         Row(verticalAlignment = Alignment.CenterVertically) {
-            RadioButton(selected = role == "CLIENT", onClick = { role = "CLIENT" })
+            RadioButton(selected = role == UserRole.CLIENT, onClick = { role = UserRole.CLIENT })
             Text("Client", color = MaterialTheme.colorScheme.onBackground)
             Spacer(modifier = Modifier.width(20.dp))
-            RadioButton(selected = role == "PROVIDER", onClick = { role = "PROVIDER" })
+            RadioButton(selected = role == UserRole.PROVIDER, onClick = { role = UserRole.PROVIDER })
             Text("Service Provider", color = MaterialTheme.colorScheme.onBackground)
         }
 

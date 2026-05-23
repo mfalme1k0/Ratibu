@@ -284,6 +284,7 @@ fun ProviderDetailScreen(
                 // Action Buttons (Call & Chat)
                 if (!isOwnProfile) {
                     item {
+                        // First Row: Call and Chat
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -300,8 +301,8 @@ fun ProviderDetailScreen(
                                     shape = RoundedCornerShape(12.dp)
                                 ) {
                                     Icon(Icons.Default.Call, contentDescription = null)
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text("Call")
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Call", fontSize = 12.sp)
                                 }
                             }
                             
@@ -315,11 +316,32 @@ fun ProviderDetailScreen(
                                 shape = RoundedCornerShape(12.dp)
                             ) {
                                 Icon(Icons.Default.Chat, contentDescription = null)
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("Chat")
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Chat", fontSize = 12.sp)
                             }
                         }
-                        Spacer(modifier = Modifier.height(12.dp))
+                        
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Second Row: Maps (Directions)
+                        if (provider.location.isNotEmpty()) {
+                            Button(
+                                onClick = {
+                                    val gmmIntentUri = Uri.parse("google.navigation:q=${provider.location}")
+                                    val mapIntent = Intent(Intent.ACTION_VIEW, gmmIntentUri)
+                                    mapIntent.setPackage("com.google.android.apps.maps")
+                                    context.startActivity(mapIntent)
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Icon(Icons.Default.LocationOn, contentDescription = null)
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Open in Maps", fontSize = 12.sp)
+                            }
+                            Spacer(modifier = Modifier.height(12.dp))
+                        }
 
                         // WhatsApp Button
                         if (provider.phoneNumber.isNotEmpty()) {

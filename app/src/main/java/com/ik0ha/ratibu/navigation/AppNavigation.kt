@@ -5,6 +5,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.ik0ha.ratibu.data.UserRole
 import com.ik0ha.ratibu.data.repository.UserRepository
 import com.ik0ha.ratibu.screens.*
 
@@ -17,7 +18,7 @@ fun AppNavigation() {
         val currentUid = userRepository.getCurrentUserId()
         if (currentUid != null) {
             userRepository.getUserRole(currentUid) { role ->
-                val destination = if (role == "PROVIDER") "dashboard" else "home"
+                val destination = if (role == UserRole.PROVIDER) "dashboard" else "home"
                 navController.navigate(destination) {
                     popUpTo("login") { inclusive = true }
                 }

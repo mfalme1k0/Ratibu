@@ -4,6 +4,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.FirebaseDatabase
 import com.ik0ha.ratibu.data.ServiceProvider
 import com.ik0ha.ratibu.data.User
+import com.ik0ha.ratibu.data.UserRole
 
 class UserRepository {
     private val auth = FirebaseAuth.getInstance()

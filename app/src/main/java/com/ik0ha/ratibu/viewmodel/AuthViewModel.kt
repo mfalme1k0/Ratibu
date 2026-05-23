@@ -7,6 +7,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.messaging.FirebaseMessaging
 import com.ik0ha.ratibu.data.CacheManager
 import com.ik0ha.ratibu.data.User
+import com.ik0ha.ratibu.data.UserRole
 import com.ik0ha.ratibu.data.repository.UserRepository
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
@@ -35,7 +36,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                     updateFcmToken(uid)
                     repository.getUserRole(uid) { role ->
                         viewModelScope.launch {
-                            if (role == "PROVIDER") {
+                            if (role == UserRole.PROVIDER) {
                                 _events.emit(AuthEvent.ProviderLoginSuccess)
                             } else {
                                 _events.emit(AuthEvent.LoginSuccess)
@@ -56,10 +57,10 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                     updateFcmToken(uid)
                     val user = User(uid, name, email, role)
                     
-                    repository.saveUserBatch(user, role == "PROVIDER") { success ->
+                    repository.saveUserBatch(user, role == UserRole.PROVIDER) { success ->
                         viewModelScope.launch {
                             if (success) {
-                                if (role == "PROVIDER") {
+                                if (role == UserRole.PROVIDER) {
                                     _events.emit(AuthEvent.ProviderLoginSuccess)
                                 } else {
                                     _events.emit(AuthEvent.LoginSuccess)

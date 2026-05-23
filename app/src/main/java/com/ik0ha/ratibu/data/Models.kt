@@ -1,10 +1,15 @@
 package com.ik0ha.ratibu.data
 
+object UserRole {
+    const val CLIENT = "CLIENT"
+    const val PROVIDER = "PROVIDER"
+}
+
 data class User(
     val uid: String = "",
     val name: String = "",
     val email: String = "",
-    val role: String = "CLIENT" // CLIENT or PROVIDER
+    val role: String = UserRole.CLIENT // CLIENT or PROVIDER
 )
 
 data class ServiceProvider(

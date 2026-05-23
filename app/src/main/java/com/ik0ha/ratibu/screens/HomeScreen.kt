@@ -28,6 +28,7 @@ import androidx.navigation.NavHostController
 import coil.compose.AsyncImage
 import com.ik0ha.ratibu.R
 import com.ik0ha.ratibu.data.ServiceProvider
+import com.ik0ha.ratibu.data.UserRole
 import com.ik0ha.ratibu.viewmodel.AuthViewModel
 import com.ik0ha.ratibu.viewmodel.HomeViewModel
 
@@ -67,7 +68,7 @@ fun HomeScreen(
                     IconButton(onClick = { navController.navigate("chat_list") }) {
                         Icon(Icons.Default.Chat, contentDescription = "Messages", tint = MaterialTheme.colorScheme.primary)
                     }
-                    if (userRole == "PROVIDER") {
+                    if (userRole == UserRole.PROVIDER) {
                         IconButton(onClick = { navController.navigate("dashboard") }) {
                             Icon(Icons.Default.Dashboard, contentDescription = "Dashboard", tint = MaterialTheme.colorScheme.primary)
                         }
