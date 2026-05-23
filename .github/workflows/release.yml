@@ -38,6 +38,21 @@ jobs:
         fi
         echo "$ENCODED_KEYSTORE" | tr -d '[:space:]' | base64 -d > keystore.jks
 
+    - name: Debug Signing Variables
+      env:
+        STORE_PASS: ${{ secrets.RELEASE_STORE_PASSWORD }}
+        KEY_PASS: ${{ secrets.RELEASE_KEY_PASSWORD }}
+        KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+      run: |
+        echo "Verifying secret lengths (no values shown):"
+        echo "STORE_PASSWORD length: ${#STORE_PASS}"
+        echo "KEY_PASSWORD length: ${#KEY_PASS}"
+        echo "KEY_ALIAS length: ${#KEY_ALIAS}"
+        
+        # Test the password directly against the file we just decoded
+        echo "Testing password against decoded file..."
+        keytool -list -keystore keystore.jks -storepass "$STORE_PASS" && echo "PASSWORD VERIFIED" || echo "PASSWORD FAILED"
+
     - name: Create local.properties
       run: |
         echo "sdk.dir=$ANDROID_HOME" > local.properties
