@@ -24,9 +24,12 @@ jobs:
           echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
 
       - name: Create google-services.json
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
         run: |
-          echo "Debug: Secret length is $(echo "${{ secrets.GOOGLE_SERVICES_JSON }}" | tr -d '[:space:]' | wc -c)"
-          echo "${{ secrets.GOOGLE_SERVICES_JSON }}" | tr -d '[:space:]' | base64 --decode > app/google-services.json
+          cat <<EOF > app/google-services.json
+          $GOOGLE_SERVICES_JSON
+          EOF
 
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
