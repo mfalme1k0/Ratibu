@@ -1,11 +1,28 @@
 package com.ik0ha.ratibu.ui.theme
 
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
-private val CyanLuxuryColorScheme = lightColorScheme(
+private val DarkCyanLuxuryColorScheme = darkColorScheme(
+    primary = CyanSecondary, // Use the lighter cyan for primary in dark mode
+    secondary = CyanLight,
+    tertiary = CyanTertiary,
+    background = Color(0xFF121212),
+    surface = Color(0xFF1E1E1E),
+    onPrimary = Color.Black,
+    onSecondary = Color.Black,
+    onTertiary = Color.Black,
+    onBackground = Color.White,
+    onSurface = Color.White,
+    error = Color(0xFFCF6679),
+    onError = Color.Black
+)
+
+private val LightCyanLuxuryColorScheme = lightColorScheme(
     primary = CyanPrimary,
     secondary = CyanSecondary,
     tertiary = CyanTertiary,
@@ -22,12 +39,17 @@ private val CyanLuxuryColorScheme = lightColorScheme(
 
 @Composable
 fun RatibuTheme(
-    darkTheme: Boolean = false, // Enforce light theme for the requested "Light Look"
+    darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit
 ) {
-    // We ignore darkTheme and dynamicColor to maintain the specific brand identity requested
+    val colorScheme = if (darkTheme) {
+        DarkCyanLuxuryColorScheme
+    } else {
+        LightCyanLuxuryColorScheme
+    }
+
     MaterialTheme(
-        colorScheme = CyanLuxuryColorScheme,
+        colorScheme = colorScheme,
         typography = Typography,
         content = content
     )

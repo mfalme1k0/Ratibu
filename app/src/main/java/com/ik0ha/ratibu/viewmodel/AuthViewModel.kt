@@ -35,6 +35,9 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                     val uid = task.result?.user?.uid ?: ""
                     updateFcmToken(uid)
                     repository.getUserRole(uid) { role ->
+                        if (role != null) {
+                            cacheManager.saveUserRole(uid, role)
+                        }
                         viewModelScope.launch {
                             if (role == UserRole.PROVIDER) {
                                 _events.emit(AuthEvent.ProviderLoginSuccess)
@@ -58,6 +61,9 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                     val user = User(uid, name, email, role)
                     
                     repository.saveUserBatch(user, role == UserRole.PROVIDER) { success ->
+                        if (success) {
+                            cacheManager.saveUserRole(uid, role)
+                        }
                         viewModelScope.launch {
                             if (success) {
                                 if (role == UserRole.PROVIDER) {

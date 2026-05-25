@@ -37,6 +37,14 @@ class CacheManager(context: Context) {
         }
     }
 
+    fun saveUserRole(uid: String, role: String) {
+        prefs.edit().putString("user_role_$uid", role).apply()
+    }
+
+    fun getUserRole(uid: String): String? {
+        return prefs.getString("user_role_$uid", null)
+    }
+
     fun clearAll() {
         prefs.edit().clear().apply()
     }

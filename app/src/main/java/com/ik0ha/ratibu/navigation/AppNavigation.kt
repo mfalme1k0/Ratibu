@@ -2,9 +2,12 @@ package com.ik0ha.ratibu.navigation
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.ik0ha.ratibu.data.CacheManager
 import com.ik0ha.ratibu.data.UserRole
 import com.ik0ha.ratibu.data.repository.UserRepository
 import com.ik0ha.ratibu.screens.*
@@ -12,15 +15,33 @@ import com.ik0ha.ratibu.screens.*
 @Composable
 fun AppNavigation() {
     val navController = rememberNavController()
+    val context = LocalContext.current
     val userRepository = UserRepository()
+    val cacheManager = remember { CacheManager(context) }
 
     LaunchedEffect(Unit) {
         val currentUid = userRepository.getCurrentUserId()
         if (currentUid != null) {
-            userRepository.getUserRole(currentUid) { role ->
-                val destination = if (role == UserRole.PROVIDER) "dashboard" else "home"
+            // First, try to get role from cache for instant navigation
+            val cachedRole = cacheManager.getUserRole(currentUid)
+            if (cachedRole != null) {
+                val destination = if (cachedRole == UserRole.PROVIDER) "dashboard" else "home"
                 navController.navigate(destination) {
                     popUpTo("login") { inclusive = true }
+                }
+            }
+
+            // Then, fetch from network to ensure it's up to date
+            userRepository.getUserRole(currentUid) { role ->
+                if (role != null) {
+                    cacheManager.saveUserRole(currentUid, role)
+                    // If the cached role was different or missing, navigate again
+                    if (role != cachedRole) {
+                        val destination = if (role == UserRole.PROVIDER) "dashboard" else "home"
+                        navController.navigate(destination) {
+                            popUpTo("login") { inclusive = true }
+                        }
+                    }
                 }
             }
         }
