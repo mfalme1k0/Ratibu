@@ -20,6 +20,8 @@ import com.ik0ha.ratibu.data.repository.UserRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
@@ -56,13 +58,17 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
 
     private val _uploading = MutableStateFlow(false)
     val uploading: StateFlow<Boolean> = _uploading
+    
+    private val _isLoading = MutableStateFlow(true)
+    val isLoading: StateFlow<Boolean> = _isLoading
 
     init {
         if (providerId.isNotEmpty()) {
-            // Load profile from cache first
             _providerProfile.value = cacheManager.getProfile(providerId)
             fetchProfile()
-            fetchBookings()
+            observeBookings()
+        } else {
+            _isLoading.value = false
         }
     }
 
@@ -76,6 +82,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                         cacheManager.saveProfile(it)
                     }
                 } catch (e: Exception) {
+                    // Fallback logic for legacy data
                     val name = snapshot.child("name").getValue(String::class.java) ?: ""
                     val category = snapshot.child("category").getValue(String::class.java) ?: ""
                     val bio = snapshot.child("bio").getValue(String::class.java) ?: ""
@@ -121,36 +128,38 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         })
     }
 
-    private fun fetchBookings() {
-        bookingRepository.getBookingsByProvider(providerId) { list ->
-            val sorted = list.sortedBy { it.startTime }
-            _bookings.value = sorted
-            
-            _upcomingBookings.value = sorted.filter { 
-                it.status != "COMPLETED" && it.status != "CANCELLED"
-            }
+    private fun observeBookings() {
+        bookingRepository.getBookingsByProvider(providerId)
+            .onEach { list ->
+                val sorted = list.sortedBy { it.startTime }
+                _bookings.value = sorted
+                
+                _upcomingBookings.value = sorted.filter { 
+                    it.status != "COMPLETED" && it.status != "CANCELLED"
+                }
 
-            _completedBookings.value = sorted.filter { it.status == "COMPLETED" }
+                _completedBookings.value = sorted.filter { it.status == "COMPLETED" }
 
-            val cal = Calendar.getInstance()
-            cal.set(Calendar.HOUR_OF_DAY, 0)
-            cal.set(Calendar.MINUTE, 0)
-            cal.set(Calendar.SECOND, 0)
-            cal.set(Calendar.MILLISECOND, 0)
-            val startOfDay = cal.timeInMillis
-            
-            cal.set(Calendar.HOUR_OF_DAY, 23)
-            cal.set(Calendar.MINUTE, 59)
-            cal.set(Calendar.SECOND, 59)
-            cal.set(Calendar.MILLISECOND, 999)
-            val endOfDay = cal.timeInMillis
-            
-            _todayBookings.value = sorted.filter { it.startTime in startOfDay..endOfDay }
+                val cal = Calendar.getInstance()
+                cal.set(Calendar.HOUR_OF_DAY, 0)
+                cal.set(Calendar.MINUTE, 0)
+                cal.set(Calendar.SECOND, 0)
+                cal.set(Calendar.MILLISECOND, 0)
+                val startOfDay = cal.timeInMillis
+                
+                cal.set(Calendar.HOUR_OF_DAY, 23)
+                cal.set(Calendar.MINUTE, 59)
+                cal.set(Calendar.SECOND, 59)
+                cal.set(Calendar.MILLISECOND, 999)
+                val endOfDay = cal.timeInMillis
+                
+                _todayBookings.value = sorted.filter { it.startTime in startOfDay..endOfDay }
 
-            viewModelScope.launch(Dispatchers.Default) {
-                computeAnalytics(sorted)
-            }
-        }
+                viewModelScope.launch(Dispatchers.Default) {
+                    computeAnalytics(sorted)
+                }
+                _isLoading.value = false
+            }.launchIn(viewModelScope)
     }
 
     private fun computeAnalytics(bookings: List<Session>) {

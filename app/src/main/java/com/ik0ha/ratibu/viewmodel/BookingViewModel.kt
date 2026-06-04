@@ -3,6 +3,7 @@ package com.ik0ha.ratibu.viewmodel
 import android.app.Application
 import android.widget.Toast
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
 import androidx.work.Data
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
@@ -15,6 +16,8 @@ import com.ik0ha.ratibu.data.repository.BookingRepository
 import com.ik0ha.ratibu.data.repository.UserRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import java.util.concurrent.TimeUnit
 
 class BookingViewModel(application: Application) : AndroidViewModel(application) {
@@ -37,11 +40,12 @@ class BookingViewModel(application: Application) : AndroidViewModel(application)
             val duration = (provider?.slotDurationMinutes ?: 30) * 60 * 1000L
             val buffer = (provider?.bufferTimeMinutes ?: 10) * 60 * 1000L
             
-            bookingRepository.getBookingsByProvider(providerId) { list ->
-                val occupiedTimeRanges = list.filter { it.status != "CANCELLED" }
-                    .map { it.startTime..(it.startTime + duration + buffer) }
-                _bookedRanges.value = occupiedTimeRanges
-            }
+            bookingRepository.getBookingsByProvider(providerId)
+                .onEach { list ->
+                    val occupiedTimeRanges = list.filter { it.status != "CANCELLED" }
+                        .map { it.startTime..(it.startTime + duration + buffer) }
+                    _bookedRanges.value = occupiedTimeRanges
+                }.launchIn(viewModelScope)
         }
     }
 

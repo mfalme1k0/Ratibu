@@ -53,19 +53,21 @@ fun BookingScreen(
     val timeSlots = remember(providerSettings) {
         val slots = mutableListOf<String>()
         providerSettings?.let { settings ->
-            val cal = Calendar.getInstance()
+            val nairobiZone = TimeZone.getTimeZone("Africa/Nairobi")
+            val cal = Calendar.getInstance(nairobiZone)
             cal.set(Calendar.HOUR_OF_DAY, settings.workStartHour)
             cal.set(Calendar.MINUTE, 0)
             cal.set(Calendar.SECOND, 0)
             cal.set(Calendar.MILLISECOND, 0)
             
-            val endCal = Calendar.getInstance()
+            val endCal = Calendar.getInstance(nairobiZone)
             endCal.set(Calendar.HOUR_OF_DAY, settings.workEndHour)
             endCal.set(Calendar.MINUTE, 0)
             endCal.set(Calendar.SECOND, 0)
             endCal.set(Calendar.MILLISECOND, 0)
             
             val format = SimpleDateFormat("hh:mm a", Locale.getDefault())
+            format.timeZone = nairobiZone
             val interval = settings.slotDurationMinutes + settings.bufferTimeMinutes
             
             while (cal.timeInMillis < endCal.timeInMillis) {
@@ -83,12 +85,15 @@ fun BookingScreen(
     }
 
     fun getTimestamp(day: Calendar, timeStr: String): Long {
-        val timeCal = Calendar.getInstance()
+        val nairobiZone = TimeZone.getTimeZone("Africa/Nairobi")
+        val timeCal = Calendar.getInstance(nairobiZone)
         val format = SimpleDateFormat("hh:mm a", Locale.getDefault())
+        format.timeZone = nairobiZone
         val date = format.parse(timeStr) ?: return 0L
         timeCal.time = date
         
         val result = day.clone() as Calendar
+        result.timeZone = nairobiZone
         result.set(Calendar.HOUR_OF_DAY, timeCal.get(Calendar.HOUR_OF_DAY))
         result.set(Calendar.MINUTE, timeCal.get(Calendar.MINUTE))
         result.set(Calendar.SECOND, 0)
@@ -100,6 +105,10 @@ fun BookingScreen(
         return bookedRanges.any { range -> 
             startTime in range
         }
+    }
+    
+    fun isPastTime(startTime: Long): Boolean {
+        return startTime < System.currentTimeMillis()
     }
 
     Scaffold(
@@ -191,6 +200,7 @@ fun BookingScreen(
                         rowSlots.forEach { time ->
                             val timestamp = getTimestamp(selectedDay, time)
                             val isBooked = isSlotOccupied(timestamp)
+                            val isPast = isPastTime(timestamp)
                             
                             var showWaitlistDialog by remember { mutableStateOf(false) }
 
@@ -215,11 +225,12 @@ fun BookingScreen(
                                 time = time,
                                 isSelected = selectedTime == time,
                                 isBooked = isBooked,
+                                isPast = isPast,
                                 modifier = Modifier.weight(1f),
                                 onClick = { 
-                                    if (!isBooked) {
+                                    if (!isBooked && !isPast) {
                                         selectedTime = time 
-                                    } else {
+                                    } else if (isBooked && !isPast) {
                                         showWaitlistDialog = true
                                     }
                                 }
@@ -305,27 +316,41 @@ fun BookingScreen(
 }
 
 @Composable
-fun TimeSlotCard(time: String, isSelected: Boolean, isBooked: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
+fun TimeSlotCard(
+    time: String, 
+    isSelected: Boolean, 
+    isBooked: Boolean, 
+    isPast: Boolean,
+    modifier: Modifier = Modifier, 
+    onClick: () -> Unit
+) {
     val backgroundColor = when {
+        isPast -> MaterialTheme.colorScheme.surfaceVariant
         isBooked -> Color(0xFFF44336) // Red
         isSelected -> MaterialTheme.colorScheme.primary
         else -> Color(0xFF4CAF50) // Green
+    }
+
+    val contentColor = when {
+        isPast -> MaterialTheme.colorScheme.outline
+        isSelected || isBooked -> Color.White
+        else -> backgroundColor
     }
 
     Box(
         modifier = modifier
             .height(50.dp)
             .clip(RoundedCornerShape(8.dp))
-            .background(backgroundColor.copy(alpha = if (isSelected || isBooked) 1f else 0.1f))
-            .clickable(enabled = !isBooked, onClick = onClick),
+            .background(backgroundColor.copy(alpha = if (isSelected || isBooked || isPast) 1f else 0.1f))
+            .clickable(enabled = !isBooked && !isPast, onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
         Text(
             text = time,
-            color = if (isSelected || isBooked) Color.White else backgroundColor,
+            color = contentColor,
             fontSize = 12.sp,
             fontWeight = FontWeight.Bold,
-            textDecoration = if (isBooked) androidx.compose.ui.text.style.TextDecoration.LineThrough else null
+            textDecoration = if (isBooked || isPast) androidx.compose.ui.text.style.TextDecoration.LineThrough else null
         )
     }
 }

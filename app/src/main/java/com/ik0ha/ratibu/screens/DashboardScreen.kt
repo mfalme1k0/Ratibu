@@ -33,6 +33,7 @@ import java.util.*
 @Composable
 fun DashboardScreen(
     navController: NavHostController,
+    rootNavController: NavHostController? = null,
     dashboardViewModel: DashboardViewModel = viewModel(),
     authViewModel: AuthViewModel = viewModel()
 ) {
@@ -41,6 +42,7 @@ fun DashboardScreen(
     val todayBookings by dashboardViewModel.todayBookings.collectAsState()
     val analytics by dashboardViewModel.analytics.collectAsState()
     val profile by dashboardViewModel.providerProfile.collectAsState()
+    val isLoading by dashboardViewModel.isLoading.collectAsState()
     
     var showWalkInDialog by remember { mutableStateOf(false) }
     var showBlockTimeDialog by remember { mutableStateOf(false) }
@@ -71,21 +73,8 @@ fun DashboardScreen(
             TopAppBar(
                 title = { Text("Provider Dashboard") },
                 actions = {
-                    IconButton(onClick = { navController.navigate("today") }) {
-                        Icon(Icons.Default.Today, contentDescription = "Today's Schedule")
-                    }
-                    IconButton(onClick = { navController.navigate("chat_list") }) {
-                        Icon(Icons.Default.Chat, contentDescription = "Messages")
-                    }
-                    IconButton(onClick = { navController.navigate("provider_profile") }) {
-                        Icon(Icons.Default.Person, contentDescription = "Edit Profile")
-                    }
-                    IconButton(onClick = { 
-                        authViewModel.logout {
-                            navController.navigate("login") { popUpTo(0) }
-                        }
-                    }) {
-                        Icon(Icons.Default.Logout, contentDescription = "Logout")
+                    IconButton(onClick = { navController.navigate("settings") }) {
+                        Icon(Icons.Default.Settings, contentDescription = "Settings")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -113,135 +102,145 @@ fun DashboardScreen(
             }
         }
     ) { innerPadding ->
-        if (showWalkInDialog) {
-            WalkInDialog(
-                onDismiss = { showWalkInDialog = false },
-                onConfirm = { name, time, notes ->
-                    dashboardViewModel.addWalkIn(name, time, notes)
-                    showWalkInDialog = false
-                }
-            )
-        }
-        
-        if (showBlockTimeDialog) {
-            BlockTimeDialog(
-                onDismiss = { showBlockTimeDialog = false },
-                onConfirm = { time, duration, reason ->
-                    dashboardViewModel.blockTime(time, duration, reason)
-                    showBlockTimeDialog = false
-                }
-            )
-        }
-
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .background(MaterialTheme.colorScheme.background)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            // Analytics / Summary Section
-            item {
-                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            "Overview",
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        TextButton(onClick = { navController.navigate("analytics") }) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text("Detailed Insights")
-                                Icon(Icons.Default.ArrowForward, contentDescription = null, modifier = Modifier.size(16.dp))
-                            }
-                        }
-                    }
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        StatCard(
-                            label = "Today's Schedule",
-                            value = todayBookings.size.toString(),
-                            modifier = Modifier.weight(1f),
-                            onClick = { navController.navigate("today") }
-                        )
-                        StatCard(
-                            label = "Rating",
-                            value = profile?.rating.toString(),
-                            modifier = Modifier.weight(1f),
-                            onClick = { selectedAnalytic = "Rating" to "${profile?.rating} stars average" }
-                        )
-                    }
-                    
-                    if (analytics.isNotEmpty()) {
-                        val items = analytics.toList()
-                        items.chunked(2).forEach { rowItems ->
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(16.dp)
-                            ) {
-                                rowItems.forEach { (label, value) ->
-                                    StatCard(
-                                        label = label,
-                                        value = value,
-                                        modifier = Modifier.weight(1f),
-                                        onClick = { selectedAnalytic = label to value }
-                                    )
-                                }
-                                if (rowItems.size == 1) {
-                                    Spacer(modifier = Modifier.weight(1f))
-                                }
-                            }
-                        }
-                    }
-                }
+        if (isLoading) {
+            Box(modifier = Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
             }
-
-            item {
-                Text(
-                    "Upcoming Sessions",
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
+        } else {
+            if (showWalkInDialog) {
+                WalkInDialog(
+                    onDismiss = { showWalkInDialog = false },
+                    onConfirm = { name, time, notes ->
+                        dashboardViewModel.addWalkIn(name, time, notes)
+                        showWalkInDialog = false
+                    }
+                )
+            }
+            
+            if (showBlockTimeDialog) {
+                BlockTimeDialog(
+                    onDismiss = { showBlockTimeDialog = false },
+                    onConfirm = { time, duration, reason ->
+                        dashboardViewModel.blockTime(time, duration, reason)
+                        showBlockTimeDialog = false
+                    }
                 )
             }
 
-            if (upcomingBookings.isEmpty()) {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .background(MaterialTheme.colorScheme.background)
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // Analytics / Summary Section
                 item {
-                    Box(
-                        modifier = Modifier.fillMaxWidth().height(200.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text("No upcoming sessions", color = MaterialTheme.colorScheme.secondary)
+                    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                "Overview",
+                                fontSize = 20.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            TextButton(onClick = { navController.navigate("analytics") }) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text("Detailed Insights")
+                                    Icon(Icons.Default.ArrowForward, contentDescription = null, modifier = Modifier.size(16.dp))
+                                }
+                            }
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            StatCard(
+                                label = "Today's Schedule",
+                                value = todayBookings.size.toString(),
+                                modifier = Modifier.weight(1f),
+                                onClick = { navController.navigate("today") }
+                            )
+                            StatCard(
+                                label = "Rating",
+                                value = profile?.rating.toString(),
+                                modifier = Modifier.weight(1f),
+                                onClick = { selectedAnalytic = "Rating" to "${profile?.rating} stars average" }
+                            )
+                        }
+                        
+                        if (analytics.isNotEmpty()) {
+                            val items = analytics.toList()
+                            items.chunked(2).forEach { rowItems ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                                ) {
+                                    rowItems.forEach { (label, value) ->
+                                        StatCard(
+                                            label = label,
+                                            value = value,
+                                            modifier = Modifier.weight(1f),
+                                            onClick = { selectedAnalytic = label to value }
+                                        )
+                                    }
+                                    if (rowItems.size == 1) {
+                                        Spacer(modifier = Modifier.weight(1f))
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
-            } else {
-                items(upcomingBookings) { booking ->
-                    BookingItem(
-                        booking = booking,
-                        onStatusUpdate = { newStatus ->
-                            dashboardViewModel.updateBookingStatus(booking.id, newStatus)
-                        }
+
+                item {
+                    Text(
+                        "Upcoming Sessions",
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
                     )
                 }
-            }
 
-            item {
-                Spacer(modifier = Modifier.height(16.dp))
-                Button(
-                    onClick = { navController.navigate("home") },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
-                ) {
-                    Text("Switch to Client View")
+                if (upcomingBookings.isEmpty()) {
+                    item {
+                        Box(
+                            modifier = Modifier.fillMaxWidth().height(200.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("No upcoming sessions", color = MaterialTheme.colorScheme.secondary)
+                        }
+                    }
+                } else {
+                    items(upcomingBookings) { booking ->
+                        BookingItem(
+                            booking = booking,
+                            onStatusUpdate = { newStatus ->
+                                dashboardViewModel.updateBookingStatus(booking.id, newStatus)
+                            }
+                        )
+                    }
+                }
+
+                item {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Button(
+                        onClick = { 
+                            (rootNavController ?: navController).navigate("main_client") {
+                                popUpTo(0) { inclusive = true }
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
+                    ) {
+                        Text("Switch to Client View")
+                    }
                 }
             }
         }

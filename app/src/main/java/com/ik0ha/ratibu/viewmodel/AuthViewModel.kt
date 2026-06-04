@@ -17,6 +17,7 @@ sealed class AuthEvent {
     object LoginSuccess : AuthEvent()
     object ProviderLoginSuccess : AuthEvent()
     object PasswordResetSent : AuthEvent()
+    object AccountDeleted : AuthEvent()
     data class Error(val message: String) : AuthEvent()
 }
 
@@ -80,6 +81,30 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                     viewModelScope.launch { _events.emit(AuthEvent.Error("Registration failed: ${task.exception?.message}")) }
                 }
             }
+    }
+
+    fun deleteAccount(onComplete: () -> Unit) {
+        val user = auth.currentUser
+        val uid = user?.uid ?: return
+
+        // Delete from database first
+        repository.deleteUserData(uid) { success ->
+            if (success) {
+                user.delete().addOnCompleteListener { task ->
+                    if (task.isSuccessful) {
+                        cacheManager.clearAll()
+                        viewModelScope.launch { _events.emit(AuthEvent.AccountDeleted) }
+                        onComplete()
+                    } else {
+                        viewModelScope.launch { 
+                            _events.emit(AuthEvent.Error("Authentication required. Please log in again before deleting account.")) 
+                        }
+                    }
+                }
+            } else {
+                viewModelScope.launch { _events.emit(AuthEvent.Error("Failed to delete user data from database")) }
+            }
+        }
     }
 
     private fun updateFcmToken(uid: String) {

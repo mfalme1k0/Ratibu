@@ -54,3 +54,13 @@ fun RatibuTheme(
         content = content
     )
 }
+
+// To allow dynamic theme updates, we can create a composition local or just a stateful wrapper
+@Composable
+fun RatibuAppTheme(
+    themePreference: Boolean?, // null for system, true for dark, false for light
+    content: @Composable () -> Unit
+) {
+    val isDark = themePreference ?: isSystemInDarkTheme()
+    RatibuTheme(darkTheme = isDark, content = content)
+}

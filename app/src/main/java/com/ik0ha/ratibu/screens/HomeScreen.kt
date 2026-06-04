@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -62,24 +63,8 @@ fun HomeScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { navController.navigate("my_bookings") }) {
-                        Icon(Icons.Default.CalendarMonth, contentDescription = "My Bookings", tint = MaterialTheme.colorScheme.primary)
-                    }
-                    IconButton(onClick = { navController.navigate("chat_list") }) {
-                        Icon(Icons.Default.Chat, contentDescription = "Messages", tint = MaterialTheme.colorScheme.primary)
-                    }
-                    if (userRole == UserRole.PROVIDER) {
-                        IconButton(onClick = { navController.navigate("dashboard") }) {
-                            Icon(Icons.Default.Dashboard, contentDescription = "Dashboard", tint = MaterialTheme.colorScheme.primary)
-                        }
-                    }
-                    IconButton(onClick = { 
-                        authViewModel.logout {
-                            navController.navigate("login") { popUpTo(0) }
-                        }
-                    }) {
-                        Icon(Icons.Default.ExitToApp, contentDescription = "Logout", tint = MaterialTheme.colorScheme.primary)
-                    }
+                    // Modern design: Remove most navigation icons as they are in the bottom bar
+                    // Keep search or other non-nav actions here if needed
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background,

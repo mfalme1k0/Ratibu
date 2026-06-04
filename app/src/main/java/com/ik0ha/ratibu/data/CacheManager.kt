@@ -45,6 +45,19 @@ class CacheManager(context: Context) {
         return prefs.getString("user_role_$uid", null)
     }
 
+    fun setThemePreference(isDarkMode: Boolean?) {
+        if (isDarkMode == null) {
+            prefs.edit().remove("theme_preference").apply()
+        } else {
+            prefs.edit().putBoolean("theme_preference", isDarkMode).apply()
+        }
+    }
+
+    fun getThemePreference(): Boolean? {
+        if (!prefs.contains("theme_preference")) return null
+        return prefs.getBoolean("theme_preference", false)
+    }
+
     fun clearAll() {
         prefs.edit().clear().apply()
     }

@@ -24,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -32,20 +33,24 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import coil.compose.AsyncImage
 import com.google.android.gms.location.LocationServices
+import com.ik0ha.ratibu.MainActivity
 import com.ik0ha.ratibu.R
 import com.ik0ha.ratibu.viewmodel.AuthViewModel
 import com.ik0ha.ratibu.viewmodel.DashboardViewModel
+import com.ik0ha.ratibu.viewmodel.MainViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProviderProfileScreen(
     navController: NavHostController,
     dashboardViewModel: DashboardViewModel = viewModel(),
-    authViewModel: AuthViewModel = viewModel()
+    authViewModel: AuthViewModel = viewModel(),
+    mainViewModel: MainViewModel = viewModel(viewModelStoreOwner = LocalContext.current as MainActivity)
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val profile by dashboardViewModel.providerProfile.collectAsState()
     val uploading by dashboardViewModel.uploading.collectAsState()
+    val themePreference by mainViewModel.themePreference.collectAsState()
 
     var bio by remember { mutableStateOf("") }
     var category by remember { mutableStateOf("") }
@@ -145,12 +150,7 @@ fun ProviderProfileScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("My Profile") },
-                navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
+                title = { Text("Provider Profile") },
                 actions = {
                     IconButton(onClick = { 
                         dashboardViewModel.updateProfile(
@@ -374,6 +374,47 @@ fun ProviderProfileScreen(
                 }
             }
 
+            // Settings Section (Theme & Account)
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        "App Settings",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text("Theme Preference", fontWeight = FontWeight.Bold)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                FilterChip(
+                                    selected = themePreference == null,
+                                    onClick = { mainViewModel.updateTheme(null) },
+                                    label = { Text("System") }
+                                )
+                                FilterChip(
+                                    selected = themePreference == false,
+                                    onClick = { mainViewModel.updateTheme(false) },
+                                    label = { Text("Light") }
+                                )
+                                FilterChip(
+                                    selected = themePreference == true,
+                                    onClick = { mainViewModel.updateTheme(true) },
+                                    label = { Text("Dark") }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
             item {
                 Spacer(modifier = Modifier.height(32.dp))
                 Button(
@@ -383,9 +424,39 @@ fun ProviderProfileScreen(
                         }
                     },
                     modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
                 ) {
                     Text("Logout", color = Color.White)
+                }
+
+                var showDeleteConfirm by remember { mutableStateOf(false) }
+                
+                if (showDeleteConfirm) {
+                    AlertDialog(
+                        onDismissRequest = { showDeleteConfirm = false },
+                        title = { Text("Delete Account?") },
+                        text = { Text("This will permanently remove all your data. This action cannot be undone.") },
+                        confirmButton = {
+                            Button(
+                                onClick = { 
+                                    authViewModel.deleteAccount {
+                                        navController.navigate("login") { popUpTo(0) }
+                                    }
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                            ) { Text("Delete") }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { showDeleteConfirm = false }) { Text("Cancel") }
+                        }
+                    )
+                }
+
+                TextButton(
+                    onClick = { showDeleteConfirm = true },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Permanently Delete Account", color = MaterialTheme.colorScheme.error)
                 }
             }
         }

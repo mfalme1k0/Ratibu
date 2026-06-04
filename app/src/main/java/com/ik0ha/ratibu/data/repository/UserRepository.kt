@@ -66,4 +66,12 @@ class UserRepository {
             .addOnSuccessListener { onSuccess() }
             .addOnFailureListener { onFailure(it.message ?: "Update failed") }
     }
+
+    fun deleteUserData(uid: String, onResult: (Boolean) -> Unit) {
+        val updates = mapOf(
+            "users/$uid" to null,
+            "providers/$uid" to null
+        )
+        db.updateChildren(updates).addOnCompleteListener { onResult(it.isSuccessful) }
+    }
 }

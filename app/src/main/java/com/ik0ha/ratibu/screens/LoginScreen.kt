@@ -41,17 +41,20 @@ fun LoginScreen(
         authViewModel.events.collect { event ->
             when (event) {
                 is AuthEvent.LoginSuccess -> {
-                    navController.navigate("home") {
+                    navController.navigate("main_client") {
                         popUpTo("login") { inclusive = true }
                     }
                 }
                 is AuthEvent.ProviderLoginSuccess -> {
-                    navController.navigate("dashboard") {
+                    navController.navigate("main_provider") {
                         popUpTo("login") { inclusive = true }
                     }
                 }
                 is AuthEvent.PasswordResetSent -> {
                     Toast.makeText(context, "Password reset email sent. Check your inbox.", Toast.LENGTH_LONG).show()
+                }
+                is AuthEvent.AccountDeleted -> {
+                    Toast.makeText(context, "Account deleted successfully", Toast.LENGTH_SHORT).show()
                 }
                 is AuthEvent.Error -> {
                     Toast.makeText(context, event.message, Toast.LENGTH_SHORT).show()

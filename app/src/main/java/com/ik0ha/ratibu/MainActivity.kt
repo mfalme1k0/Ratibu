@@ -8,16 +8,27 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.viewModels
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.messaging.FirebaseMessaging
 import com.ik0ha.ratibu.data.CloudinaryHelper
+import com.ik0ha.ratibu.data.MyFirebaseMessagingService
 import com.ik0ha.ratibu.navigation.AppNavigation
-import com.ik0ha.ratibu.ui.theme.RatibuTheme
+import com.ik0ha.ratibu.ui.theme.RatibuAppTheme
+import com.ik0ha.ratibu.viewmodel.ChatViewModel
+import com.ik0ha.ratibu.viewmodel.MainViewModel
 
 class MainActivity : ComponentActivity() {
+
+    private val mainViewModel: MainViewModel by viewModels()
+    private val chatViewModel: ChatViewModel by viewModels()
 
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -35,7 +46,36 @@ class MainActivity : ComponentActivity() {
         CloudinaryHelper.init(this)
         enableEdgeToEdge()
         setContent {
-            RatibuTheme {
+            val themePreference by mainViewModel.themePreference.collectAsState()
+            val context = LocalContext.current
+            
+            // Notification Observer for new messages
+            val channels by chatViewModel.channels.collectAsState()
+            val currentUserId = FirebaseAuth.getInstance().currentUser?.uid
+            
+            LaunchedEffect(Unit) {
+                chatViewModel.fetchChannels()
+            }
+
+            LaunchedEffect(channels) {
+                if (currentUserId != null && channels.isNotEmpty()) {
+                    val latestChannel = channels.maxByOrNull { it.lastTimestamp }
+                    if (latestChannel != null && 
+                        latestChannel.lastTimestamp > System.currentTimeMillis() - 10000) {
+                        
+                        val senderName = if (latestChannel.clientId == currentUserId) 
+                            latestChannel.providerName else latestChannel.clientName
+                        
+                        MyFirebaseMessagingService.showNotification(
+                            context,
+                            "New message from $senderName",
+                            latestChannel.lastMessage
+                        )
+                    }
+                }
+            }
+
+            RatibuAppTheme(themePreference = themePreference) {
                 AppNavigation()
             }
         }
