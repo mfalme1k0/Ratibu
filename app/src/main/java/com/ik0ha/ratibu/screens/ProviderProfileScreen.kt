@@ -35,6 +35,7 @@ import coil.compose.AsyncImage
 import com.google.android.gms.location.LocationServices
 import com.ik0ha.ratibu.MainActivity
 import com.ik0ha.ratibu.R
+import com.ik0ha.ratibu.findActivity
 import com.ik0ha.ratibu.viewmodel.AuthViewModel
 import com.ik0ha.ratibu.viewmodel.DashboardViewModel
 import com.ik0ha.ratibu.viewmodel.MainViewModel
@@ -45,7 +46,7 @@ fun ProviderProfileScreen(
     navController: NavHostController,
     dashboardViewModel: DashboardViewModel = viewModel(),
     authViewModel: AuthViewModel = viewModel(),
-    mainViewModel: MainViewModel = viewModel(viewModelStoreOwner = LocalContext.current as MainActivity)
+    mainViewModel: MainViewModel = viewModel(viewModelStoreOwner = LocalContext.current.findActivity()!!)
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val profile by dashboardViewModel.providerProfile.collectAsState()

@@ -1,6 +1,8 @@
 package com.ik0ha.ratibu
 
 import android.Manifest
+import android.content.Context
+import android.content.ContextWrapper
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -9,6 +11,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -49,7 +52,6 @@ class MainActivity : ComponentActivity() {
             val themePreference by mainViewModel.themePreference.collectAsState()
             val context = LocalContext.current
             
-            // Notification Observer for new messages
             val channels by chatViewModel.channels.collectAsState()
             val currentUserId = FirebaseAuth.getInstance().currentUser?.uid
             
@@ -57,11 +59,17 @@ class MainActivity : ComponentActivity() {
                 chatViewModel.fetchChannels()
             }
 
+            // Notification Observer with last notified timestamp to prevent duplicates
+            val lastNotifiedTimestamp = androidx.compose.runtime.remember { androidx.compose.runtime.mutableLongStateOf(0L) }
+            
             LaunchedEffect(channels) {
                 if (currentUserId != null && channels.isNotEmpty()) {
                     val latestChannel = channels.maxByOrNull { it.lastTimestamp }
                     if (latestChannel != null && 
-                        latestChannel.lastTimestamp > System.currentTimeMillis() - 10000) {
+                        latestChannel.lastTimestamp > lastNotifiedTimestamp.longValue &&
+                        latestChannel.lastTimestamp > System.currentTimeMillis() - 15000) {
+                        
+                        lastNotifiedTimestamp.longValue = latestChannel.lastTimestamp
                         
                         val senderName = if (latestChannel.clientId == currentUserId) 
                             latestChannel.providerName else latestChannel.clientName
@@ -102,4 +110,10 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+}
+
+fun Context.findActivity(): ComponentActivity? = when (this) {
+    is ComponentActivity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
 }

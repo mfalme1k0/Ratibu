@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import com.ik0ha.ratibu.MainActivity
+import com.ik0ha.ratibu.findActivity
 import com.ik0ha.ratibu.viewmodel.AuthViewModel
 import com.ik0ha.ratibu.viewmodel.MainViewModel
 
@@ -26,7 +27,7 @@ import com.ik0ha.ratibu.viewmodel.MainViewModel
 fun SettingsScreen(
     navController: NavHostController,
     currentViewRole: String? = null,
-    mainViewModel: MainViewModel = viewModel(viewModelStoreOwner = LocalContext.current as MainActivity),
+    mainViewModel: MainViewModel = viewModel(viewModelStoreOwner = LocalContext.current.findActivity()!!),
     authViewModel: AuthViewModel = viewModel(),
     homeViewModel: com.ik0ha.ratibu.viewmodel.HomeViewModel = viewModel()
 ) {

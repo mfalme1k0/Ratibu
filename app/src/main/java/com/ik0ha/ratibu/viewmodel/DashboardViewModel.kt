@@ -2,6 +2,7 @@ package com.ik0ha.ratibu.viewmodel
 
 import android.app.Application
 import android.net.Uri
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
@@ -20,6 +21,7 @@ import com.ik0ha.ratibu.data.repository.UserRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
@@ -82,49 +84,12 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                         cacheManager.saveProfile(it)
                     }
                 } catch (e: Exception) {
-                    // Fallback logic for legacy data
-                    val name = snapshot.child("name").getValue(String::class.java) ?: ""
-                    val category = snapshot.child("category").getValue(String::class.java) ?: ""
-                    val bio = snapshot.child("bio").getValue(String::class.java) ?: ""
-                    val imageUrl = snapshot.child("imageUrl").getValue(String::class.java) ?: ""
-                    val phoneNumber = snapshot.child("phoneNumber").getValue(String::class.java) ?: ""
-                    val location = snapshot.child("location").getValue(String::class.java) ?: ""
-                    val latitude = snapshot.child("latitude").getValue(Double::class.java) ?: 0.0
-                    val longitude = snapshot.child("longitude").getValue(Double::class.java) ?: 0.0
-                    val rating = snapshot.child("rating").getValue(Double::class.java) ?: 0.0
-                    
-                    val workSamples = mutableListOf<WorkSample>()
-                    val samplesSnapshot = snapshot.child("workSamples")
-                    for (sampleSnap in samplesSnapshot.children) {
-                        try {
-                            val sample = sampleSnap.getValue(WorkSample::class.java)
-                            if (sample != null) workSamples.add(sample)
-                        } catch (e2: Exception) {
-                            val url = sampleSnap.getValue(String::class.java) ?: ""
-                            if (url.isNotEmpty()) {
-                                workSamples.add(WorkSample(imageUrl = url, description = "Previous Work"))
-                            }
-                        }
-                    }
-                    
-                    val profile = ServiceProvider(
-                        uid = providerId,
-                        name = name,
-                        category = category,
-                        bio = bio,
-                        imageUrl = imageUrl,
-                        phoneNumber = phoneNumber,
-                        location = location,
-                        latitude = latitude,
-                        longitude = longitude,
-                        rating = rating,
-                        workSamples = workSamples
-                    )
-                    _providerProfile.value = profile
-                    cacheManager.saveProfile(profile)
+                    Log.e("DashboardViewModel", "Error parsing profile", e)
                 }
             }
-            override fun onCancelled(error: DatabaseError) {}
+            override fun onCancelled(error: DatabaseError) {
+                Log.e("DashboardViewModel", "Profile fetch cancelled: ${error.message}")
+            }
         })
     }
 
@@ -159,45 +124,54 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                     computeAnalytics(sorted)
                 }
                 _isLoading.value = false
-            }.launchIn(viewModelScope)
+            }
+            .catch { e ->
+                Log.e("DashboardViewModel", "Error observing bookings", e)
+                _isLoading.value = false
+            }
+            .launchIn(viewModelScope)
     }
 
     private fun computeAnalytics(bookings: List<Session>) {
-        val completed = bookings.filter { it.status == "COMPLETED" }
-        
-        val dayCounts = completed.groupBy { 
-            SimpleDateFormat("EEE", Locale.getDefault()).format(Date(it.startTime))
-        }.mapValues { it.value.size }
+        try {
+            val completed = bookings.filter { it.status == "COMPLETED" }
+            
+            val dayCounts = completed.groupBy { 
+                SimpleDateFormat("EEE", Locale.getDefault()).format(Date(it.startTime))
+            }.mapValues { it.value.size }
 
-        val hourCounts = completed.groupBy { 
-            SimpleDateFormat("HH:00", Locale.getDefault()).format(Date(it.startTime))
-        }.mapValues { it.value.size }
+            val hourCounts = completed.groupBy { 
+                SimpleDateFormat("HH:00", Locale.getDefault()).format(Date(it.startTime))
+            }.mapValues { it.value.size }
 
-        val busiestDay = dayCounts.maxByOrNull { it.value }?.key ?: "None"
-        val busiestHour = hourCounts.maxByOrNull { it.value }?.key ?: "None"
+            val busiestDay = dayCounts.maxByOrNull { it.value }?.key ?: "None"
+            val busiestHour = hourCounts.maxByOrNull { it.value }?.key ?: "None"
 
-        val uniqueClients = bookings.filter { it.clientId != "walk-in" }.map { it.clientId }.distinct().size
-        val repeatClients = bookings.filter { it.clientId != "walk-in" }
-            .groupBy { it.clientId }
-            .filter { it.value.size > 1 }.size
-        val retentionRate = if (uniqueClients > 0) (repeatClients * 100 / uniqueClients) else 0
+            val uniqueClients = bookings.filter { it.clientId != "walk-in" }.map { it.clientId }.distinct().size
+            val repeatClients = bookings.filter { it.clientId != "walk-in" }
+                .groupBy { it.clientId }
+                .filter { it.value.size > 1 }.size
+            val retentionRate = if (uniqueClients > 0) (repeatClients * 100 / uniqueClients) else 0
 
-        val statusCounts = bookings.groupBy { it.status }.mapValues { it.value.size }
+            val statusCounts = bookings.groupBy { it.status }.mapValues { it.value.size }
 
-        _analytics.value = mapOf(
-            "Busiest Day" to busiestDay,
-            "Peak Hour" to busiestHour,
-            "Retention" to "$retentionRate%",
-            "Completion Rate" to "${if (bookings.isNotEmpty()) (completed.size * 100 / bookings.size) else 0}%"
-        )
+            _analytics.value = mapOf(
+                "Busiest Day" to busiestDay,
+                "Peak Hour" to busiestHour,
+                "Retention" to "$retentionRate%",
+                "Completion Rate" to "${if (bookings.isNotEmpty()) (completed.size * 100 / bookings.size) else 0}%"
+            )
 
-        _detailedAnalytics.value = DetailedAnalytics(
-            dayDistribution = dayCounts,
-            hourDistribution = hourCounts,
-            uniqueClients = uniqueClients,
-            repeatClients = repeatClients,
-            statusBreakdown = statusCounts
-        )
+            _detailedAnalytics.value = DetailedAnalytics(
+                dayDistribution = dayCounts,
+                hourDistribution = hourCounts,
+                uniqueClients = uniqueClients,
+                repeatClients = repeatClients,
+                statusBreakdown = statusCounts
+            )
+        } catch (e: Exception) {
+            Log.e("DashboardViewModel", "Error computing analytics", e)
+        }
     }
 
     fun updateBookingStatus(bookingId: String, newStatus: String) {
