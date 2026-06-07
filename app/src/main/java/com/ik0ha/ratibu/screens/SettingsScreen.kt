@@ -12,12 +12,14 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import com.ik0ha.ratibu.MainActivity
+import com.ik0ha.ratibu.R
 import com.ik0ha.ratibu.findActivity
 import com.ik0ha.ratibu.viewmodel.AuthViewModel
 import com.ik0ha.ratibu.viewmodel.MainViewModel
@@ -38,8 +40,8 @@ fun SettingsScreen(
     if (showDeleteConfirm) {
         AlertDialog(
             onDismissRequest = { showDeleteConfirm = false },
-            title = { Text("Delete Account?") },
-            text = { Text("This will permanently remove all your data. This action cannot be undone.") },
+            title = { Text(stringResource(R.string.delete_account_title)) },
+            text = { Text(stringResource(R.string.delete_account_message)) },
             confirmButton = {
                 Button(
                     onClick = { 
@@ -48,10 +50,10 @@ fun SettingsScreen(
                         }
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-                ) { Text("Delete") }
+                ) { Text(stringResource(R.string.delete)) }
             },
             dismissButton = {
-                TextButton(onClick = { showDeleteConfirm = false }) { Text("Cancel") }
+                TextButton(onClick = { showDeleteConfirm = false }) { Text(stringResource(R.string.cancel)) }
             }
         )
     }
@@ -59,7 +61,7 @@ fun SettingsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Settings") },
+                title = { Text(stringResource(R.string.settings)) },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background,
                     titleContentColor = MaterialTheme.colorScheme.primary
@@ -87,8 +89,8 @@ fun SettingsScreen(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Theme Mode", fontWeight = FontWeight.Bold)
-                    Text("Choose how the app looks on your device", fontSize = 12.sp, color = MaterialTheme.colorScheme.secondary)
+                    Text(stringResource(R.string.theme_mode), fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.theme_description), fontSize = 12.sp, color = MaterialTheme.colorScheme.secondary)
                     
                     Spacer(modifier = Modifier.height(16.dp))
                     
@@ -99,17 +101,17 @@ fun SettingsScreen(
                         FilterChip(
                             selected = themePreference == null,
                             onClick = { mainViewModel.updateTheme(null) },
-                            label = { Text("System") }
+                            label = { Text(stringResource(R.string.system)) }
                         )
                         FilterChip(
                             selected = themePreference == false,
                             onClick = { mainViewModel.updateTheme(false) },
-                            label = { Text("Light") }
+                            label = { Text(stringResource(R.string.light)) }
                         )
                         FilterChip(
                             selected = themePreference == true,
                             onClick = { mainViewModel.updateTheme(true) },
-                            label = { Text("Dark") }
+                            label = { Text(stringResource(R.string.dark)) }
                         )
                     }
                 }
@@ -128,7 +130,7 @@ fun SettingsScreen(
                 ) {
                     Icon(Icons.Default.Dashboard, contentDescription = null)
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Switch to Provider View")
+                    Text(stringResource(R.string.switch_to_provider_view))
                 }
             }
 

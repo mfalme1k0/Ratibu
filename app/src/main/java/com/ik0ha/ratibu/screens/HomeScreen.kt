@@ -21,6 +21,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -42,15 +43,17 @@ fun HomeScreen(
 ) {
     var searchQuery by remember { mutableStateOf("") }
     val allProviders by homeViewModel.providers.collectAsState()
-    val userRole by homeViewModel.userRole.collectAsState()
+    val isLoading by homeViewModel.isLoading.collectAsState()
 
-    val filteredProviders = if (searchQuery.isEmpty()) {
-        allProviders
-    } else {
-        allProviders.filter { 
-            it.name.contains(searchQuery, ignoreCase = true) || 
-            it.category.contains(searchQuery, ignoreCase = true) ||
-            it.location.contains(searchQuery, ignoreCase = true)
+    val filteredProviders = remember(allProviders, searchQuery) {
+        if (searchQuery.isEmpty()) {
+            allProviders
+        } else {
+            allProviders.filter { 
+                it.name.contains(searchQuery, ignoreCase = true) || 
+                it.category.contains(searchQuery, ignoreCase = true) ||
+                it.location.contains(searchQuery, ignoreCase = true)
+            }
         }
     }
 
@@ -59,12 +62,8 @@ fun HomeScreen(
             TopAppBar(
                 title = { 
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("RATIBU", fontWeight = FontWeight.ExtraBold, letterSpacing = 4.sp)
+                        Text(stringResource(R.string.app_name).uppercase(), fontWeight = FontWeight.ExtraBold, letterSpacing = 4.sp)
                     }
-                },
-                actions = {
-                    // Modern design: Remove most navigation icons as they are in the bottom bar
-                    // Keep search or other non-nav actions here if needed
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background,
@@ -83,7 +82,7 @@ fun HomeScreen(
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
-                placeholder = { Text("Search services or providers...") },
+                placeholder = { Text(stringResource(R.string.search_placeholder)) },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
@@ -96,22 +95,26 @@ fun HomeScreen(
             Spacer(modifier = Modifier.height(24.dp))
 
             Text(
-                text = "Featured Providers",
+                text = stringResource(R.string.featured_providers),
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.padding(bottom = 16.dp)
             )
 
-            if (filteredProviders.isEmpty()) {
+            if (isLoading) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("No providers available", color = MaterialTheme.colorScheme.secondary)
+                    CircularProgressIndicator()
+                }
+            } else if (filteredProviders.isEmpty()) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(stringResource(R.string.no_providers_available), color = MaterialTheme.colorScheme.secondary)
                 }
             } else {
                 LazyColumn(
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    items(filteredProviders) { provider ->
+                    items(filteredProviders, key = { it.uid }) { provider ->
                         ProviderCard(provider = provider) {
                             navController.navigate("provider_detail/${provider.uid}")
                         }

@@ -1,18 +1,16 @@
 package com.ik0ha.ratibu.viewmodel
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.*
 import com.ik0ha.ratibu.data.Review
 import com.ik0ha.ratibu.data.ServiceProvider
+import com.ik0ha.ratibu.data.NetworkResult
 import com.ik0ha.ratibu.data.repository.UserRepository
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.channels.awaitClose
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.callbackFlow
-import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.*
 import java.util.Locale
 
 class HomeViewModel : ViewModel() {
@@ -24,6 +22,9 @@ class HomeViewModel : ViewModel() {
 
     private val _userRole = MutableStateFlow<String?>(null)
     val userRole: StateFlow<String?> = _userRole
+    
+    private val _isLoading = MutableStateFlow(false)
+    val isLoading: StateFlow<Boolean> = _isLoading
 
     init {
         fetchProviders()
@@ -31,7 +32,7 @@ class HomeViewModel : ViewModel() {
     }
 
     private fun fetchProviders() {
-        callbackFlow {
+        callbackFlow<NetworkResult<List<ServiceProvider>>> {
             val listener = object : ValueEventListener {
                 override fun onDataChange(snapshot: DataSnapshot) {
                     val list = mutableListOf<ServiceProvider>()
@@ -42,54 +43,40 @@ class HomeViewModel : ViewModel() {
                                 list.add(provider)
                             }
                         } catch (e: Exception) {
-                            // Handle legacy data format
-                            val uid = child.child("uid").getValue(String::class.java) ?: ""
-                            val name = child.child("name").getValue(String::class.java) ?: ""
-                            val category = child.child("category").getValue(String::class.java) ?: ""
-                            val bio = child.child("bio").getValue(String::class.java) ?: ""
-                            val imageUrl = child.child("imageUrl").getValue(String::class.java) ?: ""
-                            val phoneNumber = child.child("phoneNumber").getValue(String::class.java) ?: ""
-                            val location = child.child("location").getValue(String::class.java) ?: ""
-                            val rating = child.child("rating").getValue(Double::class.java) ?: 0.0
-
-                            val workSamples = mutableListOf<com.ik0ha.ratibu.data.WorkSample>()
-                            for (sampleSnap in child.child("workSamples").children) {
-                                try {
-                                    val sample = sampleSnap.getValue(com.ik0ha.ratibu.data.WorkSample::class.java)
-                                    if (sample != null) workSamples.add(sample)
-                                } catch (e2: Exception) {
-                                    val url = sampleSnap.getValue(String::class.java) ?: ""
-                                    if (url.isNotEmpty()) {
-                                        workSamples.add(com.ik0ha.ratibu.data.WorkSample(imageUrl = url, description = "Portfolio"))
-                                    }
-                                }
-                            }
-
-                            list.add(ServiceProvider(
-                                uid = uid,
-                                name = name,
-                                category = category,
-                                bio = bio,
-                                imageUrl = imageUrl,
-                                phoneNumber = phoneNumber,
-                                location = location,
-                                rating = rating,
-                                workSamples = workSamples
-                            ))
+                            Log.e("HomeViewModel", "Fallback parsing for provider", e)
                         }
                     }
-                    trySend(list)
+                    trySend(NetworkResult.Success(list))
                 }
 
                 override fun onCancelled(error: DatabaseError) {
-                    close(error.toException())
+                    // CRITICAL FIX: Do NOT call close(error.toException()) which crashes the app
+                    trySend(NetworkResult.Error(error.message))
                 }
             }
             val ref = db.child("providers")
             ref.addValueEventListener(listener)
             awaitClose { ref.removeEventListener(listener) }
-        }.onEach { _providers.value = it }
-         .launchIn(viewModelScope)
+        }
+        .onStart { _isLoading.value = true }
+        .onEach { result ->
+            when (result) {
+                is NetworkResult.Success -> {
+                    _providers.value = result.data
+                    _isLoading.value = false
+                }
+                is NetworkResult.Error -> {
+                    Log.e("HomeViewModel", "Error: ${result.message}")
+                    _isLoading.value = false
+                }
+                is NetworkResult.Loading -> _isLoading.value = true
+            }
+        }
+        .catch { e -> 
+            Log.e("HomeViewModel", "Fatal error in provider flow", e)
+            _isLoading.value = false
+        }
+        .launchIn(viewModelScope)
     }
 
     private fun fetchUserRole() {

@@ -18,11 +18,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
+import com.ik0ha.ratibu.R
 import com.ik0ha.ratibu.data.Session
 import com.ik0ha.ratibu.viewmodel.AuthViewModel
 import com.ik0ha.ratibu.viewmodel.DashboardViewModel
@@ -63,7 +65,7 @@ fun DashboardScreen(
             title = { Text(label) },
             text = { Text(description) },
             confirmButton = {
-                TextButton(onClick = { selectedAnalytic = null }) { Text("Close") }
+                TextButton(onClick = { selectedAnalytic = null }) { Text(stringResource(R.string.close)) }
             }
         )
     }
@@ -71,10 +73,10 @@ fun DashboardScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Provider Dashboard") },
+                title = { Text(stringResource(R.string.provider_dashboard)) },
                 actions = {
                     IconButton(onClick = { navController.navigate("settings") }) {
-                        Icon(Icons.Default.Settings, contentDescription = "Settings")
+                        Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.settings))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -151,7 +153,7 @@ fun DashboardScreen(
                             )
                             TextButton(onClick = { navController.navigate("analytics") }) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text("Detailed Insights")
+                                    Text(stringResource(R.string.detailed_insights))
                                     Icon(Icons.Default.ArrowForward, contentDescription = null, modifier = Modifier.size(16.dp))
                                 }
                             }
@@ -201,7 +203,7 @@ fun DashboardScreen(
 
                 item {
                     Text(
-                        "Upcoming Sessions",
+                        stringResource(R.string.upcoming_sessions),
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary
@@ -214,7 +216,7 @@ fun DashboardScreen(
                             modifier = Modifier.fillMaxWidth().height(200.dp),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text("No upcoming sessions", color = MaterialTheme.colorScheme.secondary)
+                            Text(stringResource(R.string.no_upcoming_sessions), color = MaterialTheme.colorScheme.secondary)
                         }
                     }
                 } else {
@@ -239,7 +241,7 @@ fun DashboardScreen(
                         modifier = Modifier.fillMaxWidth(),
                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
                     ) {
-                        Text("Switch to Client View")
+                        Text(stringResource(R.string.switch_to_client_view))
                     }
                 }
             }
@@ -323,13 +325,13 @@ fun BookingItem(booking: Session, onStatusUpdate: (String) -> Unit) {
                             modifier = Modifier.weight(1f),
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50))
                         ) {
-                            Text("Confirm")
+                            Text(stringResource(R.string.confirm))
                         }
                         OutlinedButton(
                             onClick = { onStatusUpdate("CANCELLED") },
                             modifier = Modifier.weight(1f)
                         ) {
-                            Text("Decline", color = MaterialTheme.colorScheme.error)
+                            Text(stringResource(R.string.decline), color = MaterialTheme.colorScheme.error)
                         }
                     }
                 } else if (booking.status == "CONFIRMED") {
@@ -339,13 +341,13 @@ fun BookingItem(booking: Session, onStatusUpdate: (String) -> Unit) {
                         modifier = Modifier.fillMaxWidth(),
                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                     ) {
-                        Text("Mark Completed")
+                        Text(stringResource(R.string.mark_completed))
                     }
                 }
             } else {
                 Spacer(modifier = Modifier.height(8.dp))
                 TextButton(onClick = { onStatusUpdate("CANCELLED") }) {
-                    Text("Unblock", color = MaterialTheme.colorScheme.error)
+                    Text(stringResource(R.string.unblock), color = MaterialTheme.colorScheme.error)
                 }
             }
         }
@@ -379,18 +381,18 @@ fun WalkInDialog(onDismiss: () -> Unit, onConfirm: (String, Long, String) -> Uni
     
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Add Walk-in") },
+        title = { Text(stringResource(R.string.add_walk_in)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Client Name") })
-                OutlinedTextField(value = notes, onValueChange = { notes = it }, label = { Text("Service/Notes") })
+                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text(stringResource(R.string.client_name)) })
+                OutlinedTextField(value = notes, onValueChange = { notes = it }, label = { Text(stringResource(R.string.service_notes)) })
                 
                 Button(
                     onClick = { datePickerDialog.show() },
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer)
                 ) {
-                    Text("Time: ${dateFormat.format(Date(selectedDateTime))}")
+                    Text(stringResource(R.string.time_label, dateFormat.format(Date(selectedDateTime))))
                 }
             }
         },

@@ -1,10 +1,16 @@
 package com.ik0ha.ratibu.data.repository
 
+import android.util.Log
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.database.FirebaseDatabase
+import com.google.firebase.database.*
+import com.ik0ha.ratibu.data.NetworkResult
 import com.ik0ha.ratibu.data.ServiceProvider
 import com.ik0ha.ratibu.data.User
 import com.ik0ha.ratibu.data.UserRole
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.onStart
 
 class UserRepository {
     private val auth = FirebaseAuth.getInstance()
@@ -13,10 +19,35 @@ class UserRepository {
     fun getCurrentUserId(): String? = auth.currentUser?.uid
 
     fun getUserRole(uid: String, onResult: (String?) -> Unit) {
+        if (uid.isEmpty()) {
+            onResult(null)
+            return
+        }
         db.child("users").child(uid).child("role").get()
             .addOnSuccessListener { onResult(it.getValue(String::class.java)) }
-            .addOnFailureListener { onResult(null) }
+            .addOnFailureListener { 
+                Log.e("UserRepository", "Error getting role", it)
+                onResult(null) 
+            }
     }
+
+    fun observeUserRole(uid: String): Flow<NetworkResult<String?>> = callbackFlow {
+        if (uid.isEmpty()) {
+            trySend(NetworkResult.Error("User ID is empty"))
+            return@callbackFlow
+        }
+        val listener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                trySend(NetworkResult.Success(snapshot.getValue(String::class.java)))
+            }
+            override fun onCancelled(error: DatabaseError) {
+                trySend(NetworkResult.Error(error.message))
+            }
+        }
+        val ref = db.child("users").child(uid).child("role")
+        ref.addValueEventListener(listener)
+        awaitClose { ref.removeEventListener(listener) }
+    }.onStart { emit(NetworkResult.Loading) }
 
     fun saveUserBatch(user: User, isProvider: Boolean, onResult: (Boolean) -> Unit) {
         val updates = mutableMapOf<String, Any>()
@@ -37,7 +68,9 @@ class UserRepository {
     }
 
     fun updateFcmToken(uid: String, token: String) {
-        db.child("users").child(uid).child("fcmToken").setValue(token)
+        if (uid.isNotEmpty()) {
+            db.child("users").child(uid).child("fcmToken").setValue(token)
+        }
     }
 
     fun saveUser(user: User, onResult: (Boolean) -> Unit) {
@@ -62,12 +95,20 @@ class UserRepository {
         onSuccess: () -> Unit,
         onFailure: (String) -> Unit
     ) {
+        if (uid.isEmpty()) {
+            onFailure("User ID is empty")
+            return
+        }
         db.child("providers").child(uid).updateChildren(updates)
             .addOnSuccessListener { onSuccess() }
             .addOnFailureListener { onFailure(it.message ?: "Update failed") }
     }
 
     fun deleteUserData(uid: String, onResult: (Boolean) -> Unit) {
+        if (uid.isEmpty()) {
+            onResult(false)
+            return
+        }
         val updates = mapOf(
             "users/$uid" to null,
             "providers/$uid" to null

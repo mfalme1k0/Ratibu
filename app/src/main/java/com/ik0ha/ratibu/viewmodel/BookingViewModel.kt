@@ -1,6 +1,7 @@
 package com.ik0ha.ratibu.viewmodel
 
 import android.app.Application
+import android.util.Log
 import android.widget.Toast
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -8,16 +9,10 @@ import androidx.work.Data
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import com.google.firebase.database.FirebaseDatabase
-import com.ik0ha.ratibu.data.CacheManager
-import com.ik0ha.ratibu.data.ReminderWorker
-import com.ik0ha.ratibu.data.Session
-import com.ik0ha.ratibu.data.ServiceProvider
+import com.ik0ha.ratibu.data.*
 import com.ik0ha.ratibu.data.repository.BookingRepository
 import com.ik0ha.ratibu.data.repository.UserRepository
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.*
 import java.util.concurrent.TimeUnit
 
 class BookingViewModel(application: Application) : AndroidViewModel(application) {
@@ -33,6 +28,8 @@ class BookingViewModel(application: Application) : AndroidViewModel(application)
     val providerSettings: StateFlow<ServiceProvider?> = _providerSettings
 
     fun fetchBookedSlots(providerId: String) {
+        if (providerId.isEmpty()) return
+        
         db.child("providers").child(providerId).get().addOnSuccessListener { providerSnapshot ->
             val provider = providerSnapshot.getValue(ServiceProvider::class.java)
             _providerSettings.value = provider
@@ -41,11 +38,20 @@ class BookingViewModel(application: Application) : AndroidViewModel(application)
             val buffer = (provider?.bufferTimeMinutes ?: 10) * 60 * 1000L
             
             bookingRepository.getBookingsByProvider(providerId)
-                .onEach { list ->
-                    val occupiedTimeRanges = list.filter { it.status != "CANCELLED" }
-                        .map { it.startTime..(it.startTime + duration + buffer) }
-                    _bookedRanges.value = occupiedTimeRanges
-                }.launchIn(viewModelScope)
+                .onEach { result ->
+                    if (result is NetworkResult.Success) {
+                        val list = result.data
+                        val occupiedTimeRanges = list.filter { it.status != "CANCELLED" }
+                            .map { it.startTime..(it.startTime + duration + buffer) }
+                        _bookedRanges.value = occupiedTimeRanges
+                    } else if (result is NetworkResult.Error) {
+                        Log.e("BookingViewModel", "Error fetching slots: ${result.message}")
+                    }
+                }
+                .catch { e -> Log.e("BookingViewModel", "Fatal error slots", e) }
+                .launchIn(viewModelScope)
+        }.addOnFailureListener { 
+            Log.e("BookingViewModel", "Failed to fetch provider settings", it)
         }
     }
 
@@ -88,11 +94,15 @@ class BookingViewModel(application: Application) : AndroidViewModel(application)
                     Toast.makeText(getApplication(), "Booking failed", Toast.LENGTH_SHORT).show()
                 }
             }
+        }.addOnFailureListener {
+            Log.e("BookingViewModel", "Failed to get user name for booking", it)
         }
     }
 
     fun joinWaitlist(providerId: String, startTime: Long) {
         val clientId = userRepository.getCurrentUserId() ?: return
+        if (providerId.isEmpty()) return
+
         db.child("waitlist").child(providerId).child(startTime.toString()).child(clientId).setValue(true)
             .addOnSuccessListener {
                 Toast.makeText(getApplication(), "Joined waitlist", Toast.LENGTH_SHORT).show()

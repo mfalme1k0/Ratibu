@@ -11,7 +11,6 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
-import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -56,7 +55,9 @@ class MainActivity : ComponentActivity() {
             val currentUserId = FirebaseAuth.getInstance().currentUser?.uid
             
             LaunchedEffect(Unit) {
-                chatViewModel.fetchChannels()
+                if (currentUserId != null) {
+                    chatViewModel.fetchChannels()
+                }
             }
 
             // Notification Observer with last notified timestamp to prevent duplicates

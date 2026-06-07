@@ -10,20 +10,11 @@ import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.ValueEventListener
-import com.ik0ha.ratibu.data.CacheManager
-import com.ik0ha.ratibu.data.CloudinaryHelper
-import com.ik0ha.ratibu.data.DetailedAnalytics
-import com.ik0ha.ratibu.data.ServiceProvider
-import com.ik0ha.ratibu.data.Session
-import com.ik0ha.ratibu.data.WorkSample
+import com.ik0ha.ratibu.data.*
 import com.ik0ha.ratibu.data.repository.BookingRepository
 import com.ik0ha.ratibu.data.repository.UserRepository
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
@@ -75,6 +66,8 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     private fun fetchProfile() {
+        if (providerId.isEmpty()) return
+        
         db.child("providers").child(providerId).addValueEventListener(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 try {
@@ -88,45 +81,63 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                 }
             }
             override fun onCancelled(error: DatabaseError) {
-                Log.e("DashboardViewModel", "Profile fetch cancelled: ${error.message}")
+                // CRITICAL FIX: Gracefully handle cancellation/permission denied
+                Log.e("DashboardViewModel", "Profile sync cancelled: ${error.message}")
             }
         })
     }
 
     private fun observeBookings() {
+        if (providerId.isEmpty()) {
+            _isLoading.value = false
+            return
+        }
+        
         bookingRepository.getBookingsByProvider(providerId)
-            .onEach { list ->
-                val sorted = list.sortedBy { it.startTime }
-                _bookings.value = sorted
-                
-                _upcomingBookings.value = sorted.filter { 
-                    it.status != "COMPLETED" && it.status != "CANCELLED"
+            .onEach { result ->
+                when (result) {
+                    is NetworkResult.Loading -> {
+                        _isLoading.value = true
+                    }
+                    is NetworkResult.Success -> {
+                        val list = result.data
+                        val sorted = list.sortedBy { it.startTime }
+                        _bookings.value = sorted
+                        
+                        _upcomingBookings.value = sorted.filter { 
+                            it.status != "COMPLETED" && it.status != "CANCELLED"
+                        }
+
+                        _completedBookings.value = sorted.filter { it.status == "COMPLETED" }
+
+                        val cal = Calendar.getInstance()
+                        cal.set(Calendar.HOUR_OF_DAY, 0)
+                        cal.set(Calendar.MINUTE, 0)
+                        cal.set(Calendar.SECOND, 0)
+                        cal.set(Calendar.MILLISECOND, 0)
+                        val startOfDay = cal.timeInMillis
+                        
+                        cal.set(Calendar.HOUR_OF_DAY, 23)
+                        cal.set(Calendar.MINUTE, 59)
+                        cal.set(Calendar.SECOND, 59)
+                        cal.set(Calendar.MILLISECOND, 999)
+                        val endOfDay = cal.timeInMillis
+                        
+                        _todayBookings.value = sorted.filter { it.startTime in startOfDay..endOfDay }
+
+                        viewModelScope.launch(Dispatchers.Default) {
+                            computeAnalytics(sorted)
+                        }
+                        _isLoading.value = false
+                    }
+                    is NetworkResult.Error -> {
+                        Log.e("DashboardViewModel", "Error observing bookings: ${result.message}")
+                        _isLoading.value = false
+                    }
                 }
-
-                _completedBookings.value = sorted.filter { it.status == "COMPLETED" }
-
-                val cal = Calendar.getInstance()
-                cal.set(Calendar.HOUR_OF_DAY, 0)
-                cal.set(Calendar.MINUTE, 0)
-                cal.set(Calendar.SECOND, 0)
-                cal.set(Calendar.MILLISECOND, 0)
-                val startOfDay = cal.timeInMillis
-                
-                cal.set(Calendar.HOUR_OF_DAY, 23)
-                cal.set(Calendar.MINUTE, 59)
-                cal.set(Calendar.SECOND, 59)
-                cal.set(Calendar.MILLISECOND, 999)
-                val endOfDay = cal.timeInMillis
-                
-                _todayBookings.value = sorted.filter { it.startTime in startOfDay..endOfDay }
-
-                viewModelScope.launch(Dispatchers.Default) {
-                    computeAnalytics(sorted)
-                }
-                _isLoading.value = false
             }
             .catch { e ->
-                Log.e("DashboardViewModel", "Error observing bookings", e)
+                Log.e("DashboardViewModel", "Fatal error observing bookings", e)
                 _isLoading.value = false
             }
             .launchIn(viewModelScope)
@@ -134,41 +145,8 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
 
     private fun computeAnalytics(bookings: List<Session>) {
         try {
-            val completed = bookings.filter { it.status == "COMPLETED" }
-            
-            val dayCounts = completed.groupBy { 
-                SimpleDateFormat("EEE", Locale.getDefault()).format(Date(it.startTime))
-            }.mapValues { it.value.size }
-
-            val hourCounts = completed.groupBy { 
-                SimpleDateFormat("HH:00", Locale.getDefault()).format(Date(it.startTime))
-            }.mapValues { it.value.size }
-
-            val busiestDay = dayCounts.maxByOrNull { it.value }?.key ?: "None"
-            val busiestHour = hourCounts.maxByOrNull { it.value }?.key ?: "None"
-
-            val uniqueClients = bookings.filter { it.clientId != "walk-in" }.map { it.clientId }.distinct().size
-            val repeatClients = bookings.filter { it.clientId != "walk-in" }
-                .groupBy { it.clientId }
-                .filter { it.value.size > 1 }.size
-            val retentionRate = if (uniqueClients > 0) (repeatClients * 100 / uniqueClients) else 0
-
-            val statusCounts = bookings.groupBy { it.status }.mapValues { it.value.size }
-
-            _analytics.value = mapOf(
-                "Busiest Day" to busiestDay,
-                "Peak Hour" to busiestHour,
-                "Retention" to "$retentionRate%",
-                "Completion Rate" to "${if (bookings.isNotEmpty()) (completed.size * 100 / bookings.size) else 0}%"
-            )
-
-            _detailedAnalytics.value = DetailedAnalytics(
-                dayDistribution = dayCounts,
-                hourDistribution = hourCounts,
-                uniqueClients = uniqueClients,
-                repeatClients = repeatClients,
-                statusBreakdown = statusCounts
-            )
+            _analytics.value = AnalyticsEngine.computeSummary(bookings)
+            _detailedAnalytics.value = AnalyticsEngine.computeDetailed(bookings)
         } catch (e: Exception) {
             Log.e("DashboardViewModel", "Error computing analytics", e)
         }
@@ -179,6 +157,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun addWalkIn(clientName: String, startTime: Long, notes: String) {
+        if (providerId.isEmpty()) return
         val sessionId = bookingRepository.generateBookingKey() ?: return
         val session = Session(
             id = sessionId,
@@ -194,6 +173,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun blockTime(startTime: Long, durationMinutes: Int, reason: String) {
+        if (providerId.isEmpty()) return
         val sessionId = bookingRepository.generateBookingKey() ?: return
         val session = Session(
             id = sessionId,
@@ -239,6 +219,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun uploadProfilePhoto(uri: Uri) {
+        if (providerId.isEmpty()) return
         _uploading.value = true
         CloudinaryHelper.uploadImage(uri, 
             onSuccess = { url ->
@@ -252,6 +233,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun addWorkSample(uri: Uri, description: String) {
+        if (providerId.isEmpty()) return
         _uploading.value = true
         CloudinaryHelper.uploadImage(uri,
             onSuccess = { url ->
@@ -267,6 +249,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun deleteWorkSample(sample: WorkSample) {
+        if (providerId.isEmpty()) return
         val currentSamples = _providerProfile.value?.workSamples?.toMutableList() ?: return
         currentSamples.remove(sample)
         db.child("providers").child(providerId).child("workSamples").setValue(currentSamples)

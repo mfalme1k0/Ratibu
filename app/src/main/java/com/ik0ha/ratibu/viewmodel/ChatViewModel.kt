@@ -1,16 +1,18 @@
 package com.ik0ha.ratibu.viewmodel
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.ik0ha.ratibu.data.ChatChannel
 import com.ik0ha.ratibu.data.ChatMessage
+import com.ik0ha.ratibu.data.NetworkResult
 import com.ik0ha.ratibu.data.repository.ChatRepository
 import com.ik0ha.ratibu.data.repository.UserRepository
-import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.flow.map
 
 class ChatViewModel : ViewModel() {
     private val userRepository = UserRepository()
@@ -23,23 +25,36 @@ class ChatViewModel : ViewModel() {
     private val _channels = MutableStateFlow<List<ChatChannel>>(emptyList())
     val channels: StateFlow<List<ChatChannel>> = _channels
 
+    private val _isLoading = MutableStateFlow(false)
+    val isLoading: StateFlow<Boolean> = _isLoading
+
     fun fetchMessages(otherUserId: String) {
-        val channelId = getChannelId(currentUserId, otherUserId)
-        chatRepository.getMessages(channelId)
-            .map { list -> list.sortedBy { it.timestamp } }
-            .onEach { _messages.value = it }
+        chatRepository.getMessages(getChannelId(currentUserId, otherUserId))
+            .onEach { result ->
+                when (result) {
+                    is NetworkResult.Success -> {
+                        _messages.value = result.data.sortedBy { it.timestamp }
+                        _isLoading.value = false
+                    }
+                    is NetworkResult.Error -> {
+                        Log.e("ChatViewModel", "Error fetching messages: ${result.message}")
+                        _isLoading.value = false
+                    }
+                    is NetworkResult.Loading -> _isLoading.value = true
+                }
+            }
+            .catch { e -> Log.e("ChatViewModel", "Fatal error messages", e) }
             .launchIn(viewModelScope)
     }
 
     fun sendMessage(otherUserId: String, text: String, otherUserName: String, currentUserName: String) {
-        if (text.isEmpty()) return
+        if (text.isEmpty() || currentUserId.isEmpty()) return
         val channelId = getChannelId(currentUserId, otherUserId)
         val msgId = chatRepository.generateMessageKey(channelId) ?: return
         val timestamp = System.currentTimeMillis()
         
         val message = ChatMessage(msgId, currentUserId, text, timestamp)
         
-        // Update channel info for both users
         val channel = ChatChannel(
             id = channelId,
             clientId = if (currentUserId < otherUserId) currentUserId else otherUserId,
@@ -54,9 +69,23 @@ class ChatViewModel : ViewModel() {
     }
 
     fun fetchChannels() {
+        if (currentUserId.isEmpty()) return
+        
         chatRepository.getChannels(currentUserId)
-            .map { list -> list.sortedByDescending { it.lastTimestamp } }
-            .onEach { _channels.value = it }
+            .onEach { result ->
+                when (result) {
+                    is NetworkResult.Success -> {
+                        _channels.value = result.data.sortedByDescending { it.lastTimestamp }
+                        _isLoading.value = false
+                    }
+                    is NetworkResult.Error -> {
+                        Log.e("ChatViewModel", "Error fetching channels: ${result.message}")
+                        _isLoading.value = false
+                    }
+                    is NetworkResult.Loading -> _isLoading.value = true
+                }
+            }
+            .catch { e -> Log.e("ChatViewModel", "Fatal error channels", e) }
             .launchIn(viewModelScope)
     }
 

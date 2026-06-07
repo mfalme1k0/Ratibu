@@ -1,16 +1,15 @@
 package com.ik0ha.ratibu.viewmodel
 
 import android.app.Application
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.ik0ha.ratibu.data.CacheManager
+import com.ik0ha.ratibu.data.NetworkResult
 import com.ik0ha.ratibu.data.Session
 import com.ik0ha.ratibu.data.repository.BookingRepository
 import com.ik0ha.ratibu.data.repository.UserRepository
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.*
 
 class ClientBookingsViewModel(application: Application) : AndroidViewModel(application) {
     private val cacheManager = CacheManager(application)
@@ -20,6 +19,9 @@ class ClientBookingsViewModel(application: Application) : AndroidViewModel(appli
     private val _bookings = MutableStateFlow<List<Session>>(emptyList())
     val bookings: StateFlow<List<Session>> = _bookings
 
+    private val _isLoading = MutableStateFlow(false)
+    val isLoading: StateFlow<Boolean> = _isLoading
+
     init {
         fetchMyBookings()
     }
@@ -27,12 +29,29 @@ class ClientBookingsViewModel(application: Application) : AndroidViewModel(appli
     private fun fetchMyBookings() {
         val uid = userRepository.getCurrentUserId() ?: return
         bookingRepository.getBookingsByClient(uid)
-            .onEach { list ->
-                _bookings.value = list.sortedByDescending { it.startTime }
-            }.launchIn(viewModelScope)
+            .onEach { result ->
+                when (result) {
+                    is NetworkResult.Success -> {
+                        _bookings.value = result.data.sortedByDescending { it.startTime }
+                        _isLoading.value = false
+                    }
+                    is NetworkResult.Error -> {
+                        Log.e("ClientBookingsVM", "Error: ${result.message}")
+                        _isLoading.value = false
+                    }
+                    is NetworkResult.Loading -> _isLoading.value = true
+                }
+            }
+            .catch { e -> 
+                Log.e("ClientBookingsVM", "Fatal error client bookings", e)
+                _isLoading.value = false
+            }
+            .launchIn(viewModelScope)
     }
     
     fun cancelBooking(bookingId: String) {
-        bookingRepository.updateBookingStatus(bookingId, "CANCELLED")
+        if (bookingId.isNotEmpty()) {
+            bookingRepository.updateBookingStatus(bookingId, "CANCELLED")
+        }
     }
 }
