@@ -53,4 +53,6 @@
     <string name="search_placeholder">Search services or providers&#8230;</string>
     <string name="featured_providers">Featured Providers</string>
     <string name="no_providers_available">No providers available</string>
+    <string name="ai_assistant_title">AI Smart Assistant</string>
+    <string name="ai_hint">e.g. Block lunch from 1pm to 2pm today</string>
 </resources>

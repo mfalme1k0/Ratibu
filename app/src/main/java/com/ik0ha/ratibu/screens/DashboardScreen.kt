@@ -39,7 +39,6 @@ fun DashboardScreen(
     dashboardViewModel: DashboardViewModel = viewModel(),
     authViewModel: AuthViewModel = viewModel()
 ) {
-    val context = androidx.compose.ui.platform.LocalContext.current
     val upcomingBookings by dashboardViewModel.upcomingBookings.collectAsState()
     val todayBookings by dashboardViewModel.todayBookings.collectAsState()
     val analytics by dashboardViewModel.analytics.collectAsState()

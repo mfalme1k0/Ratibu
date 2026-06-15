@@ -81,7 +81,6 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                 }
             }
             override fun onCancelled(error: DatabaseError) {
-                // CRITICAL FIX: Gracefully handle cancellation/permission denied
                 Log.e("DashboardViewModel", "Profile sync cancelled: ${error.message}")
             }
         })
